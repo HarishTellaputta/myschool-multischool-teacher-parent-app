@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -8,11 +9,8 @@ import '../auth/auth_storage.dart';
 class HomeworkScreen extends StatefulWidget {
   final int classId;
   final String className;
-
   final int subjectId;
   final String subject;
-
-  // Assigned section - teacher cannot change this.
   final int sectionId;
   final String sectionName;
 
@@ -41,15 +39,27 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
 
   late HomeworkService homeworkService;
 
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _descriptionController =
+      TextEditingController();
+
   List<HomeworkModel> homeworkList = [];
 
   bool loadingHomework = false;
   bool initialized = false;
+  bool _savingHomework = false;
 
   @override
   void initState() {
     super.initState();
     _initialize();
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
   }
 
   Future<void> _initialize() async {
@@ -58,19 +68,17 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
       teacherId = await AuthStorage.getTeacherId();
 
       if (token == null || teacherId == null) {
-        throw Exception(
-          'Teacher session not found. Please login again.',
-        );
+        throw Exception('Teacher session not found. Please login again.');
       }
 
       homeworkService = HomeworkService(token!);
-
       initialized = true;
 
       await _loadHomework();
+
+      if (mounted) setState(() {});
     } catch (e) {
       if (!mounted) return;
-
       _showMessage(e.toString());
     }
   }
@@ -78,13 +86,10 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
   Future<void> _loadHomework() async {
     if (teacherId == null || !initialized) return;
 
-    setState(() {
-      loadingHomework = true;
-    });
+    setState(() => loadingHomework = true);
 
     try {
-      final result =
-          await homeworkService.getByTeacherClassAndSection(
+      final result = await homeworkService.getByTeacherClassAndSection(
         teacherId!,
         widget.classId,
         widget.sectionId,
@@ -99,50 +104,28 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
     } catch (e) {
       if (!mounted) return;
 
-      setState(() {
-        loadingHomework = false;
-      });
-
+      setState(() => loadingHomework = false);
       _showMessage(e.toString());
     }
   }
 
   String _formatDate(String? date) {
-    if (date == null || date.isEmpty) {
-      return '-';
-    }
+    if (date == null || date.isEmpty) return '-';
 
     final parsed = DateTime.tryParse(date);
-
-    if (parsed == null) {
-      return date;
-    }
+    if (parsed == null) return date;
 
     return '${parsed.day.toString().padLeft(2, '0')} '
-        '${_monthName(parsed.month)} '
-        '${parsed.year}';
+        '${_monthName(parsed.month)} ${parsed.year}';
   }
 
   String _monthName(int month) {
     const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
 
-    if (month < 1 || month > 12) {
-      return '';
-    }
-
+    if (month < 1 || month > 12) return '';
     return months[month - 1];
   }
 
@@ -150,64 +133,48 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
     await _showHomeworkForm();
   }
 
-  Future<void> _showEditHomework(
-    HomeworkModel homework,
-  ) async {
-    await _showHomeworkForm(
-      homework: homework,
-    );
+  Future<void> _showEditHomework(HomeworkModel homework) async {
+    await _showHomeworkForm(homework: homework);
   }
 
-  Future<void> _showHomeworkForm({
-    HomeworkModel? homework,
-  }) async {
-    final titleController = TextEditingController(
-      text: homework?.title ?? '',
-    );
+  Future<void> _showHomeworkForm({HomeworkModel? homework}) async {
+    if (!mounted) return;
 
-    final descriptionController = TextEditingController(
-      text: homework?.description ?? '',
-    );
+    // Reuse screen-owned controllers. Do not dispose them when the sheet closes.
+    _titleController.text = homework?.title ?? '';
+    _descriptionController.text = homework?.description ?? '';
+    _savingHomework = false;
 
-    final attachmentController = TextEditingController(
-      text: homework?.attachmentUrl ?? '',
-    );
-
-    DateTime selectedDate;
-
-    if (homework?.dueDate != null &&
-        homework!.dueDate!.isNotEmpty) {
-      selectedDate =
-          DateTime.tryParse(homework.dueDate!) ??
-              DateTime.now().add(
-                const Duration(days: 1),
-              );
-    } else {
-      selectedDate = DateTime.now().add(
-        const Duration(days: 1),
-      );
-    }
+    final initialDueDate = homework?.dueDate;
+    DateTime selectedDate =
+        initialDueDate != null && initialDueDate.isNotEmpty
+            ? DateTime.tryParse(initialDueDate) ??
+                DateTime.now().add(const Duration(days: 1))
+            : DateTime.now().add(const Duration(days: 1));
 
     String selectedPriority =
         (homework?.priority ?? 'MEDIUM').toUpperCase();
 
-    String selectedStatus =
-        (homework?.status ?? 'ACTIVE').toUpperCase();
+    if (!['LOW', 'MEDIUM', 'HIGH'].contains(selectedPriority)) {
+      selectedPriority = 'MEDIUM';
+    }
 
-    await showModalBottomSheet(
+    String selectedStatus = (homework?.status ?? 'ACTIVE').toUpperCase();
+
+    if (!['ACTIVE', 'COMPLETED', 'CANCELLED'].contains(selectedStatus)) {
+      selectedStatus = 'ACTIVE';
+    }
+
+    final bool? saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
         return StatefulBuilder(
-          builder: (
-            context,
-            setSheetState,
-          ) {
+          builder: (context, setSheetState) {
             return Container(
               constraints: BoxConstraints(
-                maxHeight:
-                    MediaQuery.of(context).size.height * 0.92,
+                maxHeight: MediaQuery.of(context).size.height * 0.92,
               ),
               decoration: const BoxDecoration(
                 color: Colors.white,
@@ -221,14 +188,11 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
                     left: 22,
                     right: 22,
                     top: 12,
-                    bottom:
-                        MediaQuery.of(context).viewInsets.bottom +
-                            18,
+                    bottom: MediaQuery.of(context).viewInsets.bottom + 18,
                   ),
                   child: SingleChildScrollView(
                     child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Center(
                           child: Container(
@@ -236,70 +200,52 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
                             height: 5,
                             decoration: BoxDecoration(
                               color: Colors.grey.shade300,
-                              borderRadius:
-                                  BorderRadius.circular(20),
+                              borderRadius: BorderRadius.circular(20),
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 22),
-
                         Row(
                           children: [
                             Container(
                               height: 48,
                               width: 48,
                               decoration: BoxDecoration(
-                                gradient:
-                                    const LinearGradient(
-                                  colors: [
-                                    primaryColor,
-                                    secondaryColor,
-                                  ],
+                                gradient: const LinearGradient(
+                                  colors: [primaryColor, secondaryColor],
                                 ),
-                                borderRadius:
-                                    BorderRadius.circular(15),
+                                borderRadius: BorderRadius.circular(15),
                               ),
                               child: const Icon(
                                 Icons.menu_book_rounded,
                                 color: Colors.white,
                               ),
                             ),
-
                             const SizedBox(width: 14),
-
                             Expanded(
                               child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     homework == null
                                         ? 'Create Homework'
                                         : 'Edit Homework',
-                                    style:
-                                        GoogleFonts.poppins(
+                                    style: GoogleFonts.poppins(
                                       fontSize: 20,
-                                      fontWeight:
-                                          FontWeight.w700,
+                                      fontWeight: FontWeight.w700,
                                       color: textColor,
                                     ),
                                   ),
-
                                   const SizedBox(height: 2),
-
                                   Text(
                                     '${widget.className} • '
                                     '${widget.subject} • '
                                     'Section ${widget.sectionName}',
                                     maxLines: 2,
-                                    overflow:
-                                        TextOverflow.ellipsis,
-                                    style:
-                                        GoogleFonts.poppins(
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.poppins(
                                       fontSize: 12,
-                                      color:
-                                          Colors.grey.shade600,
+                                      color: Colors.grey.shade600,
                                     ),
                                   ),
                                 ],
@@ -307,21 +253,15 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
                             ),
                           ],
                         ),
-
                         const SizedBox(height: 24),
-
-                        // Locked assignment information.
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color:
-                                const Color(0xffEAF4FF),
-                            borderRadius:
-                                BorderRadius.circular(16),
+                            color: const Color(0xffEAF4FF),
+                            borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color:
-                                  const Color(0xffD5E9FA),
+                              color: const Color(0xffD5E9FA),
                             ),
                           ),
                           child: Row(
@@ -331,8 +271,7 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
                                 width: 38,
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius:
-                                      BorderRadius.circular(11),
+                                  borderRadius: BorderRadius.circular(11),
                                 ),
                                 child: const Icon(
                                   Icons.lock_outline_rounded,
@@ -340,29 +279,23 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
                                   size: 19,
                                 ),
                               ),
-
                               const SizedBox(width: 11),
-
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       'Assigned Section',
-                                      style:
-                                          GoogleFonts.poppins(
+                                      style: GoogleFonts.poppins(
                                         fontSize: 11,
                                         color: Colors.grey.shade600,
                                       ),
                                     ),
                                     Text(
                                       'Section ${widget.sectionName}',
-                                      style:
-                                          GoogleFonts.poppins(
+                                      style: GoogleFonts.poppins(
                                         fontSize: 13,
-                                        fontWeight:
-                                            FontWeight.w700,
+                                        fontWeight: FontWeight.w700,
                                         color: textColor,
                                       ),
                                     ),
@@ -372,85 +305,57 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
                             ],
                           ),
                         ),
-
                         const SizedBox(height: 20),
-
                         _formLabel('Homework Title'),
-
                         const SizedBox(height: 8),
-
                         _premiumField(
-                          controller: titleController,
+                          controller: _titleController,
                           hint: 'Enter homework title',
                           icon: Icons.title_rounded,
                         ),
-
                         const SizedBox(height: 16),
-
                         _formLabel('Description'),
-
                         const SizedBox(height: 8),
-
                         _premiumField(
-                          controller:
-                              descriptionController,
-                          hint:
-                              'Write homework instructions...',
+                          controller: _descriptionController,
+                          hint: 'Write homework instructions...',
                           icon: Icons.notes_rounded,
                           maxLines: 4,
                         ),
-
                         const SizedBox(height: 16),
-
                         _formLabel('Due Date'),
-
                         const SizedBox(height: 8),
-
                         InkWell(
-                          borderRadius:
-                              BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(16),
                           onTap: () async {
                             final now = DateTime.now();
-
-                            final firstDate = DateTime(
-                              now.year,
-                              now.month,
-                              now.day,
-                            );
+                            final firstDate =
+                                DateTime(now.year, now.month, now.day);
 
                             final initialDate =
-                                selectedDate.isBefore(
-                              firstDate,
-                            )
+                                selectedDate.isBefore(firstDate)
                                     ? firstDate
                                     : selectedDate;
 
-                            final picked =
-                                await showDatePicker(
+                            final picked = await showDatePicker(
                               context: context,
                               initialDate: initialDate,
                               firstDate: firstDate,
-                              lastDate:
-                                  DateTime(2100),
+                              lastDate: DateTime(2100),
                             );
 
-                            if (picked != null) {
-                              setSheetState(() {
-                                selectedDate = picked;
-                              });
+                            if (picked != null && sheetContext.mounted) {
+                              setSheetState(() => selectedDate = picked);
                             }
                           },
                           child: Container(
                             width: double.infinity,
-                            padding:
-                                const EdgeInsets.all(16),
+                            padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
                               color: backgroundColor,
-                              borderRadius:
-                                  BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color:
-                                    Colors.grey.shade200,
+                                color: Colors.grey.shade200,
                               ),
                             ),
                             child: Row(
@@ -458,27 +363,17 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
                                 Container(
                                   height: 40,
                                   width: 40,
-                                  decoration:
-                                      BoxDecoration(
-                                    color:
-                                        const Color(
-                                      0xffE3F2FD,
-                                    ),
-                                    borderRadius:
-                                        BorderRadius.circular(
-                                      12,
-                                    ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xffE3F2FD),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: const Icon(
-                                    Icons
-                                        .calendar_month_rounded,
+                                    Icons.calendar_month_rounded,
                                     color: primaryColor,
                                     size: 21,
                                   ),
                                 ),
-
                                 const SizedBox(width: 12),
-
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
@@ -486,293 +381,212 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
                                     children: [
                                       Text(
                                         'Due Date',
-                                        style:
-                                            GoogleFonts.poppins(
+                                        style: GoogleFonts.poppins(
                                           fontSize: 11,
-                                          color: Colors
-                                              .grey.shade600,
+                                          color: Colors.grey.shade600,
                                         ),
                                       ),
                                       Text(
                                         _formatDate(
-                                          selectedDate
-                                              .toIso8601String(),
+                                          selectedDate.toIso8601String(),
                                         ),
-                                        style:
-                                            GoogleFonts.poppins(
-                                          fontWeight:
-                                              FontWeight.w600,
+                                        style: GoogleFonts.poppins(
+                                          fontWeight: FontWeight.w600,
                                           color: textColor,
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
-
                                 const Icon(
-                                  Icons
-                                      .chevron_right_rounded,
+                                  Icons.chevron_right_rounded,
                                   color: Colors.grey,
                                 ),
                               ],
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 16),
-
                         Row(
                           children: [
                             Expanded(
                               child: _premiumDropdown(
                                 label: 'Priority',
-                                value:
-                                    selectedPriority,
+                                value: selectedPriority,
                                 items: const [
                                   DropdownMenuItem(
                                     value: 'LOW',
-                                    child:
-                                        Text('Low'),
+                                    child: Text('Low'),
                                   ),
                                   DropdownMenuItem(
                                     value: 'MEDIUM',
-                                    child:
-                                        Text('Medium'),
+                                    child: Text('Medium'),
                                   ),
                                   DropdownMenuItem(
                                     value: 'HIGH',
-                                    child:
-                                        Text('High'),
+                                    child: Text('High'),
                                   ),
                                 ],
                                 onChanged: (value) {
                                   if (value != null) {
-                                    setSheetState(() {
-                                      selectedPriority =
-                                          value;
-                                    });
+                                    setSheetState(
+                                      () => selectedPriority = value,
+                                    );
                                   }
                                 },
                               ),
                             ),
-
                             const SizedBox(width: 12),
-
                             Expanded(
                               child: _premiumDropdown(
                                 label: 'Status',
-                                value:
-                                    selectedStatus,
+                                value: selectedStatus,
                                 items: const [
                                   DropdownMenuItem(
                                     value: 'ACTIVE',
-                                    child:
-                                        Text('Active'),
+                                    child: Text('Active'),
                                   ),
                                   DropdownMenuItem(
                                     value: 'COMPLETED',
-                                    child:
-                                        Text('Completed'),
+                                    child: Text('Completed'),
                                   ),
                                   DropdownMenuItem(
                                     value: 'CANCELLED',
-                                    child:
-                                        Text('Cancelled'),
+                                    child: Text('Cancelled'),
                                   ),
                                 ],
                                 onChanged: (value) {
                                   if (value != null) {
-                                    setSheetState(() {
-                                      selectedStatus =
-                                          value;
-                                    });
+                                    setSheetState(
+                                      () => selectedStatus = value,
+                                    );
                                   }
                                 },
                               ),
                             ),
                           ],
                         ),
-
-                        const SizedBox(height: 16),
-
-                        _formLabel('Attachment URL'),
-
-                        const SizedBox(height: 8),
-
-                        _premiumField(
-                          controller:
-                              attachmentController,
-                          hint:
-                              'Optional attachment link',
-                          icon:
-                              Icons.attach_file_rounded,
-                        ),
-
                         const SizedBox(height: 24),
-
                         SizedBox(
                           width: double.infinity,
                           height: 54,
                           child: ElevatedButton(
-                            style:
-                                ElevatedButton.styleFrom(
+                            style: ElevatedButton.styleFrom(
                               elevation: 0,
-                              backgroundColor:
-                                  primaryColor,
-                              shape:
-                                  RoundedRectangleBorder(
-                                borderRadius:
-                                    BorderRadius.circular(
-                                  17,
-                                ),
+                              backgroundColor: primaryColor,
+                              disabledBackgroundColor:
+                                  primaryColor.withOpacity(0.6),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(17),
                               ),
                             ),
-                            onPressed: () async {
-                              if (titleController.text
-                                  .trim()
-                                  .isEmpty) {
-                                _showMessage(
-                                  'Please enter homework title',
-                                );
-                                return;
-                              }
+                            onPressed: _savingHomework
+                                ? null
+                                : () async {
+                                    if (_titleController.text.trim().isEmpty) {
+                                      _showMessage(
+                                        'Please enter homework title',
+                                      );
+                                      return;
+                                    }
 
-                              if (teacherId == null) {
-                                _showMessage(
-                                  'Teacher information missing',
-                                );
-                                return;
-                              }
+                                    if (teacherId == null) {
+                                      _showMessage(
+                                        'Teacher information missing',
+                                      );
+                                      return;
+                                    }
 
-                              final dueDate =
-                                  '${selectedDate.year}-'
-                                  '${selectedDate.month.toString().padLeft(2, '0')}-'
-                                  '${selectedDate.day.toString().padLeft(2, '0')}';
+                                    setSheetState(
+                                      () => _savingHomework = true,
+                                    );
 
-                              try {
-                                Navigator.pop(
-                                  sheetContext,
-                                );
+                                    final dueDate =
+                                        '${selectedDate.year}-'
+                                        '${selectedDate.month.toString().padLeft(2, '0')}-'
+                                        '${selectedDate.day.toString().padLeft(2, '0')}';
 
-                                if (homework == null) {
-                                  await homeworkService
-                                      .createHomework(
-                                    classId:
-                                        widget.classId,
-                                    sectionId:
-                                        widget.sectionId,
-                                    teacherId:
-                                        teacherId!,
-                                    subjectId:
-                                        widget.subjectId,
-                                    title:
-                                        titleController
-                                            .text
-                                            .trim(),
-                                    description:
-                                        descriptionController
-                                            .text
-                                            .trim(),
-                                    dueDate:
-                                        dueDate,
-                                    status:
-                                        selectedStatus,
-                                    attachmentUrl:
-                                        attachmentController
-                                                .text
-                                                .trim()
-                                                .isEmpty
-                                            ? null
-                                            : attachmentController
-                                                .text
-                                                .trim(),
-                                    priority:
-                                        selectedPriority,
-                                  );
-                                } else {
-                                  await homeworkService
-                                      .updateHomework(
-                                    id: homework.id!,
-                                    classId:
-                                        widget.classId,
-                                    sectionId:
-                                        widget.sectionId,
-                                    teacherId:
-                                        teacherId!,
-                                    subjectId:
-                                        homework.subjectId ??
-                                            widget.subjectId,
-                                    title:
-                                        titleController
-                                            .text
-                                            .trim(),
-                                    description:
-                                        descriptionController
-                                            .text
-                                            .trim(),
-                                    dueDate:
-                                        dueDate,
-                                    status:
-                                        selectedStatus,
-                                    attachmentUrl:
-                                        attachmentController
-                                                .text
-                                                .trim()
-                                                .isEmpty
-                                            ? null
-                                            : attachmentController
-                                                .text
-                                                .trim(),
-                                    priority:
-                                        selectedPriority,
-                                  );
-                                }
+                                    try {
+                                      if (homework == null) {
+                                        await homeworkService.createHomework(
+                                          classId: widget.classId,
+                                          sectionId: widget.sectionId,
+                                          teacherId: teacherId!,
+                                          subjectId: widget.subjectId,
+                                          title: _titleController.text.trim(),
+                                          description: _descriptionController
+                                              .text
+                                              .trim(),
+                                          dueDate: dueDate,
+                                          status: selectedStatus,
+                                          priority: selectedPriority,
+                                        );
+                                      } else {
+                                        await homeworkService.updateHomework(
+                                          id: homework.id!,
+                                          classId: widget.classId,
+                                          sectionId: widget.sectionId,
+                                          teacherId: teacherId!,
+                                          subjectId: homework.subjectId ??
+                                              widget.subjectId,
+                                          title: _titleController.text.trim(),
+                                          description: _descriptionController
+                                              .text
+                                              .trim(),
+                                          dueDate: dueDate,
+                                          status: selectedStatus,
+                                          priority: selectedPriority,
+                                        );
+                                      }
 
-                                await _loadHomework();
+                                      if (sheetContext.mounted) {
+                                        Navigator.of(sheetContext).pop(true);
+                                      }
+                                    } catch (e) {
+                                      if (sheetContext.mounted) {
+                                        setSheetState(
+                                          () => _savingHomework = false,
+                                        );
+                                      }
 
-                                if (!mounted) return;
-
-                                _showMessage(
-                                  homework == null
-                                      ? 'Homework created successfully'
-                                      : 'Homework updated successfully',
-                                );
-                              } catch (e) {
-                                if (!mounted) return;
-
-                                _showMessage(
-                                  e.toString(),
-                                );
-                              }
-                            },
-                            child: Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  homework == null
-                                      ? Icons
-                                          .publish_rounded
-                                      : Icons.save_rounded,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-
-                                const SizedBox(width: 9),
-
-                                Text(
-                                  homework == null
-                                      ? 'Publish Homework'
-                                      : 'Update Homework',
-                                  style:
-                                      GoogleFonts.poppins(
-                                    color: Colors.white,
-                                    fontWeight:
-                                        FontWeight.w600,
+                                      if (!mounted) return;
+                                      _showMessage(e.toString());
+                                    }
+                                  },
+                            child: _savingHomework
+                                ? const SizedBox(
+                                    height: 22,
+                                    width: 22,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.2,
+                                      valueColor:
+                                          AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        homework == null
+                                            ? Icons.publish_rounded
+                                            : Icons.save_rounded,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 9),
+                                      Text(
+                                        homework == null
+                                            ? 'Publish Homework'
+                                            : 'Update Homework',
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ],
-                            ),
                           ),
                         ),
                       ],
@@ -786,9 +600,18 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
       },
     );
 
-    titleController.dispose();
-    descriptionController.dispose();
-    attachmentController.dispose();
+    // Important: controllers are disposed only in the screen's dispose().
+    if (saved == true && mounted) {
+      await _loadHomework();
+
+      if (!mounted) return;
+
+      _showMessage(
+        homework == null
+            ? 'Homework created successfully'
+            : 'Homework updated successfully',
+      );
+    }
   }
 
   Widget _formLabel(String text) {
@@ -811,10 +634,7 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
     return TextField(
       controller: controller,
       maxLines: maxLines,
-      style: GoogleFonts.poppins(
-        fontSize: 14,
-        color: textColor,
-      ),
+      style: GoogleFonts.poppins(fontSize: 14, color: textColor),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: GoogleFonts.poppins(
@@ -822,46 +642,26 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
           fontSize: 13,
         ),
         prefixIcon: Padding(
-          padding: EdgeInsets.only(
-            left: 14,
-            right: maxLines > 1 ? 0 : 4,
-          ),
-          child: Icon(
-            icon,
-            color: primaryColor,
-            size: 20,
-          ),
+          padding: EdgeInsets.only(left: 14, right: maxLines > 1 ? 0 : 4),
+          child: Icon(icon, color: primaryColor, size: 20),
         ),
-        prefixIconConstraints:
-            const BoxConstraints(
+        prefixIconConstraints: const BoxConstraints(
           minWidth: 48,
           minHeight: 48,
         ),
         filled: true,
         fillColor: backgroundColor,
         border: OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: Colors.grey.shade200,
-          ),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey.shade200),
         ),
-        enabledBorder:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: Colors.grey.shade200,
-          ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey.shade200),
         ),
-        focusedBorder:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(16),
-          borderSide: const BorderSide(
-            color: primaryColor,
-            width: 1.3,
-          ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: primaryColor, width: 1.3),
         ),
       ),
     );
@@ -870,12 +670,11 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
   Widget _premiumDropdown({
     required String label,
     required String value,
-    required List<DropdownMenuItem<String>>
-        items,
+    required List<DropdownMenuItem<String>> items,
     required ValueChanged<String?> onChanged,
   }) {
     return DropdownButtonFormField<String>(
-      value: value,
+      initialValue: value,
       isExpanded: true,
       decoration: InputDecoration(
         labelText: label,
@@ -886,19 +685,12 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
         filled: true,
         fillColor: backgroundColor,
         border: OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: Colors.grey.shade200,
-          ),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey.shade200),
         ),
-        enabledBorder:
-            OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(16),
-          borderSide: BorderSide(
-            color: Colors.grey.shade200,
-          ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: Colors.grey.shade200),
         ),
       ),
       items: items,
@@ -911,17 +703,13 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
     );
   }
 
-  Future<void> _deleteHomework(
-    HomeworkModel homework,
-  ) async {
-    final shouldDelete =
-        await showDialog<bool>(
+  Future<void> _deleteHomework(HomeworkModel homework) async {
+    final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(22),
           ),
           title: Text(
             'Delete Homework?',
@@ -932,51 +720,33 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
           ),
           content: Text(
             'Delete "${homework.title ?? 'this homework'}"?',
-            style: GoogleFonts.poppins(
-              color: Colors.grey.shade700,
-            ),
+            style: GoogleFonts.poppins(color: Colors.grey.shade700),
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                  false,
-                );
-              },
+              onPressed: () => Navigator.pop(dialogContext, false),
               child: Text(
                 'Cancel',
                 style: GoogleFonts.poppins(
                   color: Colors.grey.shade700,
-                  fontWeight:
-                      FontWeight.w500,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
             ElevatedButton(
-              style:
-                  ElevatedButton.styleFrom(
-                backgroundColor:
-                    Colors.red.shade600,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade600,
                 elevation: 0,
-                shape:
-                    RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                  true,
-                );
-              },
+              onPressed: () => Navigator.pop(dialogContext, true),
               child: Text(
                 'Delete',
                 style: GoogleFonts.poppins(
                   color: Colors.white,
-                  fontWeight:
-                      FontWeight.w600,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -985,196 +755,121 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
       },
     );
 
-    if (shouldDelete != true ||
-        homework.id == null) {
-      return;
-    }
+    if (shouldDelete != true || homework.id == null) return;
 
     try {
-      await homeworkService.deleteHomework(
-        homework.id!,
-      );
-
+      await homeworkService.deleteHomework(homework.id!);
       await _loadHomework();
 
       if (!mounted) return;
-
-      _showMessage(
-        'Homework deleted successfully',
-      );
+      _showMessage('Homework deleted successfully');
     } catch (e) {
-      _showMessage(
-        e.toString(),
-      );
+      if (!mounted) return;
+      _showMessage(e.toString());
     }
   }
 
   void _showMessage(String message) {
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          message.replaceFirst(
-            'Exception: ',
-            '',
-          ),
+          message.replaceFirst('Exception: ', ''),
           style: GoogleFonts.poppins(
             fontSize: 13,
-            fontWeight:
-                FontWeight.w500,
+            fontWeight: FontWeight.w500,
           ),
         ),
-        behavior:
-            SnackBarBehavior.floating,
-        margin:
-            const EdgeInsets.all(16),
-        shape:
-            RoundedRectangleBorder(
-          borderRadius:
-              BorderRadius.circular(14),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
         ),
       ),
     );
   }
 
-  int _activeCount() {
-    return homeworkList
-        .where(
-          (item) =>
-              (item.status ?? '')
-                  .toUpperCase() ==
-              'ACTIVE',
-        )
-        .length;
-  }
+  int _activeCount() => homeworkList
+      .where((item) => (item.status ?? '').toUpperCase() == 'ACTIVE')
+      .length;
 
-  int _completedCount() {
-    return homeworkList
-        .where(
-          (item) =>
-              (item.status ?? '')
-                  .toUpperCase() ==
-              'COMPLETED',
-        )
-        .length;
-  }
+  int _completedCount() => homeworkList
+      .where((item) => (item.status ?? '').toUpperCase() == 'COMPLETED')
+      .length;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          backgroundColor,
-
+      backgroundColor: backgroundColor,
       appBar: AppBar(
-        backgroundColor:
-            Colors.white,
-        surfaceTintColor:
-            Colors.white,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
         elevation: 0,
         centerTitle: false,
         titleSpacing: 20,
         title: Text(
           'Homework',
-          style:
-              GoogleFonts.poppins(
+          style: GoogleFonts.poppins(
             color: textColor,
             fontSize: 20,
-            fontWeight:
-                FontWeight.w700,
+            fontWeight: FontWeight.w700,
           ),
         ),
         actions: [
           IconButton(
             tooltip: 'Refresh',
-            onPressed:
-                _loadHomework,
-            icon: const Icon(
-              Icons.refresh_rounded,
-              color: textColor,
-            ),
+            onPressed: _loadHomework,
+            icon: const Icon(Icons.refresh_rounded, color: textColor),
           ),
           const SizedBox(width: 8),
         ],
       ),
-
       body: RefreshIndicator(
         color: primaryColor,
         onRefresh: _loadHomework,
         child: CustomScrollView(
-          physics:
-              const AlwaysScrollableScrollPhysics(),
+          physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverPadding(
-              padding:
-                  const EdgeInsets.fromLTRB(
-                18,
-                8,
-                18,
-                110,
-              ),
+              padding: const EdgeInsets.fromLTRB(18, 8, 18, 110),
               sliver: SliverList(
-                delegate:
-                    SliverChildListDelegate([
+                delegate: SliverChildListDelegate([
                   _buildHeaderCard(),
-
                   const SizedBox(height: 16),
-
                   _buildAssignedSectionCard(),
-
                   const SizedBox(height: 22),
-
                   _buildHomeworkHeader(),
-
                   const SizedBox(height: 14),
-
                   if (loadingHomework)
                     const SizedBox(
                       height: 300,
                       child: Center(
-                        child:
-                            CircularProgressIndicator(
-                          color:
-                              primaryColor,
+                        child: CircularProgressIndicator(
+                          color: primaryColor,
                         ),
                       ),
                     )
-                  else if (homeworkList
-                      .isEmpty)
+                  else if (homeworkList.isEmpty)
                     _buildEmptyState()
                   else
-                    ...homeworkList.map(
-                      (homework) =>
-                          _homeworkCard(
-                        homework,
-                      ),
-                    ),
+                    ...homeworkList.map(_homeworkCard),
                 ]),
               ),
             ),
           ],
         ),
       ),
-
-      floatingActionButton:
-          FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton.extended(
         elevation: 6,
-        backgroundColor:
-            primaryColor,
-        onPressed:
-            _showAddHomework,
-        icon: const Icon(
-          Icons.add_rounded,
-          color: Colors.white,
-        ),
+        backgroundColor: primaryColor,
+        onPressed: _showAddHomework,
+        icon: const Icon(Icons.add_rounded, color: Colors.white),
         label: Text(
           'Add Homework',
-          style:
-              GoogleFonts.poppins(
+          style: GoogleFonts.poppins(
             color: Colors.white,
-            fontWeight:
-                FontWeight.w600,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),
@@ -1183,98 +878,62 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
 
   Widget _buildHeaderCard() {
     return Container(
-      padding:
-          const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient:
-            const LinearGradient(
-          colors: [
-            primaryColor,
-            Color(0xff1976D2),
-            secondaryColor,
-          ],
-          begin:
-              Alignment.topLeft,
-          end:
-              Alignment.bottomRight,
+        gradient: const LinearGradient(
+          colors: [primaryColor, Color(0xff1976D2), secondaryColor],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        borderRadius:
-            BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(26),
         boxShadow: [
           BoxShadow(
-            color: primaryColor
-                .withOpacity(0.20),
+            color: primaryColor.withOpacity(0.20),
             blurRadius: 20,
-            offset:
-                const Offset(0, 10),
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
                 height: 50,
                 width: 50,
-                decoration:
-                    BoxDecoration(
-                  color: Colors.white
-                      .withOpacity(0.18),
-                  borderRadius:
-                      BorderRadius.circular(
-                    16,
-                  ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.18),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Icon(
                   Icons.menu_book_rounded,
-                  color:
-                      Colors.white,
+                  color: Colors.white,
                   size: 27,
                 ),
               ),
-
               const SizedBox(width: 14),
-
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment
-                          .start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       widget.className,
                       maxLines: 1,
-                      overflow:
-                          TextOverflow
-                              .ellipsis,
-                      style:
-                          GoogleFonts.poppins(
-                        color:
-                            Colors.white,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
                         fontSize: 21,
-                        fontWeight:
-                            FontWeight.w700,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-
-                    const SizedBox(
-                        height: 2),
-
+                    const SizedBox(height: 2),
                     Text(
                       widget.subject,
                       maxLines: 1,
-                      overflow:
-                          TextOverflow
-                              .ellipsis,
-                      style:
-                          GoogleFonts.poppins(
-                        color: Colors
-                            .white
-                            .withOpacity(
-                                0.85),
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
+                        color: Colors.white.withOpacity(0.85),
                         fontSize: 13,
                       ),
                     ),
@@ -1283,70 +942,45 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
               ),
             ],
           ),
-
           const SizedBox(height: 22),
-
           Container(
-            padding:
-                const EdgeInsets.all(13),
-            decoration:
-                BoxDecoration(
-              color: Colors.white
-                  .withOpacity(
-                      0.12),
-              borderRadius:
-                  BorderRadius.circular(
-                17,
-              ),
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(17),
               border: Border.all(
-                color: Colors.white
-                    .withOpacity(
-                        0.14),
+                color: Colors.white.withOpacity(0.14),
               ),
             ),
             child: Row(
               children: [
                 Expanded(
-                  child:
-                      _headerStat(
-                    Icons
-                        .assignment_rounded,
+                  child: _headerStat(
+                    Icons.assignment_rounded,
                     '${homeworkList.length}',
                     'Total',
                   ),
                 ),
-
                 Container(
                   width: 1,
                   height: 35,
-                  color: Colors.white
-                      .withOpacity(
-                          0.18),
+                  color: Colors.white.withOpacity(0.18),
                 ),
-
                 Expanded(
-                  child:
-                      _headerStat(
-                    Icons
-                        .play_circle_fill_rounded,
+                  child: _headerStat(
+                    Icons.play_circle_fill_rounded,
                     '${_activeCount()}',
                     'Active',
                   ),
                 ),
-
                 Container(
                   width: 1,
                   height: 35,
-                  color: Colors.white
-                      .withOpacity(
-                          0.18),
+                  color: Colors.white.withOpacity(0.18),
                 ),
-
                 Expanded(
-                  child:
-                      _headerStat(
-                    Icons
-                        .check_circle_rounded,
+                  child: _headerStat(
+                    Icons.check_circle_rounded,
                     '${_completedCount()}',
                     'Done',
                   ),
@@ -1362,97 +996,66 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
   Widget _buildAssignedSectionCard() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.all(15),
+      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(19),
-        border: Border.all(
-          color:
-              const Color(0xffE1E8F0),
-        ),
+        borderRadius: BorderRadius.circular(19),
+        border: Border.all(color: const Color(0xffE1E8F0)),
       ),
       child: Row(
         children: [
           Container(
             height: 45,
             width: 45,
-            decoration:
-                BoxDecoration(
-              color:
-                  const Color(0xffE3F2FD),
-              borderRadius:
-                  BorderRadius.circular(
-                14,
-              ),
+            decoration: BoxDecoration(
+              color: const Color(0xffE3F2FD),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: const Icon(
               Icons.lock_outline_rounded,
-              color:
-                  primaryColor,
+              color: primaryColor,
               size: 21,
             ),
           ),
-
           const SizedBox(width: 12),
-
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment
-                      .start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Assigned Section',
-                  style:
-                      GoogleFonts.poppins(
+                  style: GoogleFonts.poppins(
                     fontSize: 11,
-                    color: Colors
-                        .grey.shade600,
+                    color: Colors.grey.shade600,
                   ),
                 ),
-                const SizedBox(
-                    height: 2),
+                const SizedBox(height: 2),
                 Text(
                   'Section ${widget.sectionName}',
-                  style:
-                      GoogleFonts.poppins(
+                  style: GoogleFonts.poppins(
                     fontSize: 14,
-                    fontWeight:
-                        FontWeight.w700,
-                    color:
-                        textColor,
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
                   ),
                 ),
               ],
             ),
           ),
-
           Container(
-            padding:
-                const EdgeInsets.symmetric(
+            padding: const EdgeInsets.symmetric(
               horizontal: 10,
               vertical: 7,
             ),
-            decoration:
-                BoxDecoration(
-              color:
-                  const Color(0xffE8F5E9),
-              borderRadius:
-                  BorderRadius.circular(
-                10,
-              ),
+            decoration: BoxDecoration(
+              color: const Color(0xffE8F5E9),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
               'LOCKED',
-              style:
-                  GoogleFonts.poppins(
+              style: GoogleFonts.poppins(
                 fontSize: 9,
-                fontWeight:
-                    FontWeight.w700,
-                color:
-                    Colors.green.shade700,
+                fontWeight: FontWeight.w700,
+                color: Colors.green.shade700,
               ),
             ),
           ),
@@ -1461,47 +1064,27 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
     );
   }
 
-  Widget _headerStat(
-    IconData icon,
-    String value,
-    String label,
-  ) {
+  Widget _headerStat(IconData icon, String value, String label) {
     return Row(
-      mainAxisAlignment:
-          MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(
-          icon,
-          color: Colors.white
-              .withOpacity(0.9),
-          size: 19,
-        ),
-
+        Icon(icon, color: Colors.white.withOpacity(0.9), size: 19),
         const SizedBox(width: 7),
-
         Column(
-          crossAxisAlignment:
-              CrossAxisAlignment
-                  .start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               value,
-              style:
-                  GoogleFonts.poppins(
-                color:
-                    Colors.white,
-                fontWeight:
-                    FontWeight.w700,
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
                 fontSize: 15,
               ),
             ),
             Text(
               label,
-              style:
-                  GoogleFonts.poppins(
-                color: Colors.white
-                    .withOpacity(
-                        0.72),
+              style: GoogleFonts.poppins(
+                color: Colors.white.withOpacity(0.72),
                 fontSize: 10,
               ),
             ),
@@ -1516,63 +1099,43 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
       children: [
         Expanded(
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment
-                    .start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Assigned Homework',
-                style:
-                    GoogleFonts.poppins(
+                style: GoogleFonts.poppins(
                   fontSize: 19,
-                  fontWeight:
-                      FontWeight.w700,
-                  color:
-                      textColor,
+                  fontWeight: FontWeight.w700,
+                  color: textColor,
                 ),
               ),
-
-              const SizedBox(
-                  height: 2),
-
+              const SizedBox(height: 2),
               Text(
                 'Manage tasks for Section ${widget.sectionName}',
-                style:
-                    GoogleFonts.poppins(
+                style: GoogleFonts.poppins(
                   fontSize: 11,
-                  color:
-                      Colors.grey.shade600,
+                  color: Colors.grey.shade600,
                 ),
               ),
             ],
           ),
         ),
-
         if (homeworkList.isNotEmpty)
           Container(
-            padding:
-                const EdgeInsets.symmetric(
+            padding: const EdgeInsets.symmetric(
               horizontal: 11,
               vertical: 7,
             ),
-            decoration:
-                BoxDecoration(
-              color:
-                  const Color(0xffE3F2FD),
-              borderRadius:
-                  BorderRadius.circular(
-                12,
-              ),
+            decoration: BoxDecoration(
+              color: const Color(0xffE3F2FD),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               '${homeworkList.length} Tasks',
-              style:
-                  GoogleFonts.poppins(
-                color:
-                    primaryColor,
+              style: GoogleFonts.poppins(
+                color: primaryColor,
                 fontSize: 11,
-                fontWeight:
-                    FontWeight.w700,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -1583,109 +1146,69 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
   Widget _buildEmptyState() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 25,
-        vertical: 42,
-      ),
-      decoration:
-          BoxDecoration(
+      padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 42),
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(24),
-        border: Border.all(
-          color:
-              Colors.grey.shade200,
-        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
         children: [
           Container(
             height: 78,
             width: 78,
-            decoration:
-                BoxDecoration(
-              color:
-                  const Color(0xffE3F2FD),
-              borderRadius:
-                  BorderRadius.circular(
-                24,
-              ),
+            decoration: BoxDecoration(
+              color: const Color(0xffE3F2FD),
+              borderRadius: BorderRadius.circular(24),
             ),
             child: const Icon(
               Icons.menu_book_outlined,
-              color:
-                  primaryColor,
+              color: primaryColor,
               size: 38,
             ),
           ),
-
           const SizedBox(height: 18),
-
           Text(
             'No Homework Yet',
-            style:
-                GoogleFonts.poppins(
+            style: GoogleFonts.poppins(
               fontSize: 17,
-              fontWeight:
-                  FontWeight.w700,
-              color:
-                  textColor,
+              fontWeight: FontWeight.w700,
+              color: textColor,
             ),
           ),
-
           const SizedBox(height: 7),
-
           Text(
             'Create the first homework task for Section ${widget.sectionName}.',
-            textAlign:
-                TextAlign.center,
-            style:
-                GoogleFonts.poppins(
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
               fontSize: 12,
-              color:
-                  Colors.grey.shade600,
+              color: Colors.grey.shade600,
             ),
           ),
-
           const SizedBox(height: 20),
-
           ElevatedButton.icon(
-            style:
-                ElevatedButton.styleFrom(
-              backgroundColor:
-                  primaryColor,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
               elevation: 0,
-              padding:
-                  const EdgeInsets
-                      .symmetric(
+              padding: const EdgeInsets.symmetric(
                 horizontal: 18,
                 vertical: 12,
               ),
-              shape:
-                  RoundedRectangleBorder(
-                borderRadius:
-                    BorderRadius.circular(
-                  14,
-                ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
               ),
             ),
-            onPressed:
-                _showAddHomework,
+            onPressed: _showAddHomework,
             icon: const Icon(
               Icons.add_rounded,
-              color:
-                  Colors.white,
+              color: Colors.white,
               size: 19,
             ),
             label: Text(
               'Add Homework',
-              style:
-                  GoogleFonts.poppins(
-                color:
-                    Colors.white,
-                fontWeight:
-                    FontWeight.w600,
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
                 fontSize: 12,
               ),
             ),
@@ -1695,210 +1218,123 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
     );
   }
 
-  Widget _homeworkCard(
-    HomeworkModel homework,
-  ) {
-    final priority =
-        (homework.priority ??
-                'MEDIUM')
-            .toUpperCase();
-
-    final status =
-        (homework.status ??
-                'ACTIVE')
-            .toUpperCase();
+  Widget _homeworkCard(HomeworkModel homework) {
+    final priority = (homework.priority ?? 'MEDIUM').toUpperCase();
+    final status = (homework.status ?? 'ACTIVE').toUpperCase();
 
     return Container(
-      margin:
-          const EdgeInsets.only(
-        bottom: 14,
-      ),
-      padding:
-          const EdgeInsets.all(17),
-      decoration:
-          BoxDecoration(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(17),
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(22),
-        border: Border.all(
-          color:
-              Colors.grey.shade200,
-        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
-            color: Colors.black
-                .withOpacity(0.035),
+            color: Colors.black.withOpacity(0.035),
             blurRadius: 12,
-            offset:
-                const Offset(0, 5),
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment
-                .start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment:
-                CrossAxisAlignment
-                    .start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
                 height: 48,
                 width: 48,
-                decoration:
-                    BoxDecoration(
-                  gradient:
-                      const LinearGradient(
-                    colors: [
-                      Color(
-                          0xffE3F2FD),
-                      Color(
-                          0xffBBDEFB),
-                    ],
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xffE3F2FD), Color(0xffBBDEFB)],
                   ),
-                  borderRadius:
-                      BorderRadius.circular(
-                    15,
-                  ),
+                  borderRadius: BorderRadius.circular(15),
                 ),
                 child: const Icon(
                   Icons.menu_book_rounded,
-                  color:
-                      primaryColor,
+                  color: primaryColor,
                   size: 24,
                 ),
               ),
-
               const SizedBox(width: 12),
-
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment
-                          .start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      homework.title ??
-                          'Untitled Homework',
+                      homework.title ?? 'Untitled Homework',
                       maxLines: 2,
-                      overflow:
-                          TextOverflow
-                              .ellipsis,
-                      style:
-                          GoogleFonts.poppins(
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
                         fontSize: 15,
-                        fontWeight:
-                            FontWeight.w700,
-                        color:
-                            textColor,
+                        fontWeight: FontWeight.w700,
+                        color: textColor,
                       ),
                     ),
-
-                    const SizedBox(
-                        height: 3),
-
+                    const SizedBox(height: 3),
                     Text(
-                      homework.subjectName ??
-                          widget.subject,
+                      homework.subjectName ?? widget.subject,
                       maxLines: 1,
-                      overflow:
-                          TextOverflow
-                              .ellipsis,
-                      style:
-                          GoogleFonts.poppins(
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.poppins(
                         fontSize: 11,
-                        color: Colors
-                            .grey.shade600,
+                        color: Colors.grey.shade600,
                       ),
                     ),
                   ],
                 ),
               ),
-
               PopupMenuButton<String>(
-                padding:
-                    EdgeInsets.zero,
+                padding: EdgeInsets.zero,
                 icon: Icon(
-                  Icons
-                      .more_vert_rounded,
-                  color: Colors
-                      .grey.shade600,
+                  Icons.more_vert_rounded,
+                  color: Colors.grey.shade600,
                 ),
-                shape:
-                    RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(
-                    15,
-                  ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
                 ),
-                onSelected:
-                    (value) {
-                  if (value ==
-                      'edit') {
-                    _showEditHomework(
-                      homework,
-                    );
-                  } else if (value ==
-                      'delete') {
-                    _deleteHomework(
-                      homework,
-                    );
+                onSelected: (value) {
+                  if (value == 'edit') {
+                    _showEditHomework(homework);
+                  } else if (value == 'delete') {
+                    _deleteHomework(homework);
                   }
                 },
-                itemBuilder:
-                    (context) => [
+                itemBuilder: (context) => [
                   PopupMenuItem(
                     value: 'edit',
                     child: Row(
                       children: [
                         const Icon(
-                          Icons
-                              .edit_rounded,
+                          Icons.edit_rounded,
                           size: 18,
-                          color:
-                              primaryColor,
+                          color: primaryColor,
                         ),
-                        const SizedBox(
-                            width: 10),
+                        const SizedBox(width: 10),
                         Text(
                           'Edit',
-                          style:
-                              GoogleFonts
-                                  .poppins(
-                            fontSize:
-                                13,
-                          ),
+                          style: GoogleFonts.poppins(fontSize: 13),
                         ),
                       ],
                     ),
                   ),
                   PopupMenuItem(
-                    value:
-                        'delete',
+                    value: 'delete',
                     child: Row(
                       children: [
                         Icon(
-                          Icons
-                              .delete_outline_rounded,
+                          Icons.delete_outline_rounded,
                           size: 18,
-                          color: Colors
-                              .red
-                              .shade600,
+                          color: Colors.red.shade600,
                         ),
-                        const SizedBox(
-                            width: 10),
+                        const SizedBox(width: 10),
                         Text(
                           'Delete',
-                          style:
-                              GoogleFonts
-                                  .poppins(
-                            fontSize:
-                                13,
-                            color: Colors
-                                .red
-                                .shade600,
+                          style: GoogleFonts.poppins(
+                            fontSize: 13,
+                            color: Colors.red.shade600,
                           ),
                         ),
                       ],
@@ -1908,53 +1344,28 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
               ),
             ],
           ),
-
           const SizedBox(height: 16),
-
-          if ((homework
-                      .description ??
-                  '')
-              .isNotEmpty)
+          if ((homework.description ?? '').isNotEmpty)
             Container(
-              width:
-                  double.infinity,
-              padding:
-                  const EdgeInsets.all(
-                12,
-              ),
-              decoration:
-                  BoxDecoration(
-                color:
-                    backgroundColor,
-                borderRadius:
-                    BorderRadius.circular(
-                  14,
-                ),
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: backgroundColor,
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Text(
-                homework
-                    .description!,
+                homework.description!,
                 maxLines: 3,
-                overflow:
-                    TextOverflow
-                        .ellipsis,
-                style:
-                    GoogleFonts.poppins(
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.poppins(
                   fontSize: 12,
-                  color: Colors
-                      .grey.shade700,
+                  color: Colors.grey.shade700,
                   height: 1.45,
                 ),
               ),
             ),
-
-          if ((homework
-                      .description ??
-                  '')
-              .isNotEmpty)
-            const SizedBox(
-                height: 13),
-
+          if ((homework.description ?? '').isNotEmpty)
+            const SizedBox(height: 13),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -1964,155 +1375,49 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
                 '${homework.className ?? widget.className}'
                 ' • Section ${homework.sectionName ?? widget.sectionName}',
               ),
-
               _infoChip(
-                Icons
-                    .calendar_today_rounded,
-                _formatDate(
-                  homework.dueDate,
-                ),
+                Icons.calendar_today_rounded,
+                _formatDate(homework.dueDate),
               ),
-
               _statusChip(
                 Icons.flag_rounded,
-                _priorityLabel(
-                  priority,
-                ),
-                _priorityColor(
-                  priority,
-                ),
+                _priorityLabel(priority),
+                _priorityColor(priority),
               ),
-
               _statusChip(
                 status == 'COMPLETED'
-                    ? Icons
-                        .check_circle_rounded
-                    : status ==
-                            'CANCELLED'
-                        ? Icons
-                            .cancel_rounded
-                        : Icons
-                            .play_circle_fill_rounded,
-                _statusLabel(
-                  status,
-                ),
-                _statusColor(
-                  status,
-                ),
+                    ? Icons.check_circle_rounded
+                    : status == 'CANCELLED'
+                        ? Icons.cancel_rounded
+                        : Icons.play_circle_fill_rounded,
+                _statusLabel(status),
+                _statusColor(status),
               ),
             ],
           ),
-
-          if ((homework
-                      .attachmentUrl ??
-                  '')
-              .isNotEmpty) ...[
-            const SizedBox(
-                height: 13),
-
-            Container(
-              padding:
-                  const EdgeInsets
-                      .symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
-              decoration:
-                  BoxDecoration(
-                color:
-                    const Color(
-                  0xffF3F7FB,
-                ),
-                borderRadius:
-                    BorderRadius.circular(
-                  13,
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons
-                        .attach_file_rounded,
-                    color:
-                        primaryColor,
-                    size: 18,
-                  ),
-
-                  const SizedBox(
-                      width: 8),
-
-                  Expanded(
-                    child: Text(
-                      'Attachment available',
-                      style:
-                          GoogleFonts
-                              .poppins(
-                        fontSize: 11,
-                        color:
-                            primaryColor,
-                        fontWeight:
-                            FontWeight
-                                .w600,
-                      ),
-                    ),
-                  ),
-
-                  const Icon(
-                    Icons
-                        .open_in_new_rounded,
-                    size: 16,
-                    color:
-                        primaryColor,
-                  ),
-                ],
-              ),
-            ),
-          ],
         ],
       ),
     );
   }
 
-  Widget _infoChip(
-    IconData icon,
-    String text,
-  ) {
+  Widget _infoChip(IconData icon, String text) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 8,
-      ),
-      decoration:
-          BoxDecoration(
-        color:
-            backgroundColor,
-        borderRadius:
-            BorderRadius.circular(
-          11,
-        ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(11),
       ),
       child: Row(
-        mainAxisSize:
-            MainAxisSize.min,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 14,
-            color:
-                primaryColor,
-          ),
-          const SizedBox(
-              width: 6),
+          Icon(icon, size: 14, color: primaryColor),
+          const SizedBox(width: 6),
           Text(
             text,
-            style:
-                GoogleFonts.poppins(
+            style: GoogleFonts.poppins(
               fontSize: 10,
-              color:
-                  Colors.grey.shade700,
-              fontWeight:
-                  FontWeight.w500,
+              color: Colors.grey.shade700,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
@@ -2120,45 +1425,24 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
     );
   }
 
-  Widget _statusChip(
-    IconData icon,
-    String text,
-    Color color,
-  ) {
+  Widget _statusChip(IconData icon, String text, Color color) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 8,
-      ),
-      decoration:
-          BoxDecoration(
-        color: color.withOpacity(
-            0.09),
-        borderRadius:
-            BorderRadius.circular(
-          11,
-        ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.09),
+        borderRadius: BorderRadius.circular(11),
       ),
       child: Row(
-        mainAxisSize:
-            MainAxisSize.min,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 14,
-            color: color,
-          ),
-          const SizedBox(
-              width: 6),
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
           Text(
             text,
-            style:
-                GoogleFonts.poppins(
+            style: GoogleFonts.poppins(
               fontSize: 10,
               color: color,
-              fontWeight:
-                  FontWeight.w600,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -2166,9 +1450,7 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
     );
   }
 
-  String _priorityLabel(
-    String value,
-  ) {
+  String _priorityLabel(String value) {
     switch (value) {
       case 'HIGH':
         return 'High Priority';
@@ -2179,9 +1461,7 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
     }
   }
 
-  Color _priorityColor(
-    String value,
-  ) {
+  Color _priorityColor(String value) {
     switch (value) {
       case 'HIGH':
         return Colors.red.shade600;
@@ -2192,9 +1472,7 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
     }
   }
 
-  String _statusLabel(
-    String value,
-  ) {
+  String _statusLabel(String value) {
     switch (value) {
       case 'COMPLETED':
         return 'Completed';
@@ -2205,9 +1483,7 @@ class _HomeworkScreenState extends State<HomeworkScreen> {
     }
   }
 
-  Color _statusColor(
-    String value,
-  ) {
+  Color _statusColor(String value) {
     switch (value) {
       case 'COMPLETED':
         return Colors.green.shade600;

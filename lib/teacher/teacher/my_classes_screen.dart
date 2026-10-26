@@ -101,6 +101,12 @@ class _MyClassesScreenState extends State<MyClassesScreen> {
       for (final assignment in result) {
         try {
           final classData = await classService.getClassById(assignment.classId);
+          debugPrint(
+            'CLASS DEBUG: '
+            'id=${classData.id}, '
+            'name=${classData.name}, '
+            'grade=${classData.grade}',
+          );
 
           loadedClasses[assignment.classId] = classData;
         } catch (e) {
@@ -149,11 +155,38 @@ class _MyClassesScreenState extends State<MyClassesScreen> {
   String _getClassName(TeacherAssignmentModel assignment) {
     final classData = classDetails[assignment.classId];
 
-    if (classData != null && classData.name.isNotEmpty) {
-      return classData.name;
+    if (classData != null) {
+      final name = classData.name.trim();
+
+      if (name.isNotEmpty) {
+        return name;
+      }
+
+      final grade = classData.grade.trim();
+
+      if (grade.isNotEmpty) {
+        final number = int.tryParse(grade);
+
+        if (number != null && number > 0) {
+          if (number >= 11 && number <= 13) {
+            return '${number}th Class';
+          }
+
+          switch (number % 10) {
+            case 1:
+              return '${number}st Class';
+            case 2:
+              return '${number}nd Class';
+            case 3:
+              return '${number}rd Class';
+            default:
+              return '${number}th Class';
+          }
+        }
+      }
     }
 
-    return 'Class ${assignment.classId}';
+    return 'Class details unavailable';
   }
 
   // ============================================================
@@ -517,49 +550,37 @@ class _MyClassesScreenState extends State<MyClassesScreen> {
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(23),
-
       child: InkWell(
         borderRadius: BorderRadius.circular(23),
-
         onTap: () {
           _openClassWorkspace(context, assignment, className);
         },
-
         child: Container(
+          width: double.infinity,
           padding: const EdgeInsets.all(17),
-
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(23),
-
             border: Border.all(color: const Color(0xffE5EAF1)),
           ),
-
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // CLASS HEADER
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
-
                 children: [
-                  // ==================================================
-                  // CLASS ICON
-                  // ==================================================
-
                   Container(
                     width: 55,
                     height: 55,
-
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [Color(0xffE3F2FD), Color(0xffBBDEFB)],
-
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-
                       borderRadius: BorderRadius.circular(17),
                     ),
-
                     child: const Icon(
                       Icons.class_rounded,
                       color: primaryColor,
@@ -569,20 +590,14 @@ class _MyClassesScreenState extends State<MyClassesScreen> {
 
                   const SizedBox(width: 13),
 
-                  // ==================================================
-                  // CLASS DETAILS
-                  // ==================================================
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-
                       children: [
                         Text(
                           className,
-
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-
                           style: GoogleFonts.poppins(
                             color: textColor,
                             fontSize: 17,
@@ -592,7 +607,6 @@ class _MyClassesScreenState extends State<MyClassesScreen> {
 
                         const SizedBox(height: 6),
 
-                        // SUBJECT
                         Row(
                           children: [
                             const Icon(
@@ -600,18 +614,14 @@ class _MyClassesScreenState extends State<MyClassesScreen> {
                               size: 14,
                               color: Color(0xff7B8797),
                             ),
-
                             const SizedBox(width: 5),
-
                             Expanded(
                               child: Text(
                                 assignment.subject.isNotEmpty
                                     ? assignment.subject
                                     : 'Subject not available',
-
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-
                                 style: GoogleFonts.poppins(
                                   color: const Color(0xff7B8797),
                                   fontSize: 12,
@@ -624,37 +634,34 @@ class _MyClassesScreenState extends State<MyClassesScreen> {
 
                         const SizedBox(height: 7),
 
-                        // SECTION BADGE
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 9,
                             vertical: 5,
                           ),
-
                           decoration: BoxDecoration(
                             color: const Color(0xffEAF3FF),
                             borderRadius: BorderRadius.circular(20),
                           ),
-
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
-
                             children: [
                               const Icon(
                                 Icons.groups_rounded,
                                 size: 13,
                                 color: primaryColor,
                               ),
-
                               const SizedBox(width: 5),
-
-                              Text(
-                                'Section ${assignment.sectionName ?? '-'}',
-
-                                style: GoogleFonts.poppins(
-                                  color: primaryColor,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
+                              Flexible(
+                                child: Text(
+                                  'Section ${assignment.sectionName ?? '-'}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.poppins(
+                                    color: primaryColor,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
                             ],
@@ -666,39 +673,29 @@ class _MyClassesScreenState extends State<MyClassesScreen> {
 
                   const SizedBox(width: 8),
 
-                  // ==================================================
-                  // STATUS
-                  // ==================================================
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 9,
                       vertical: 5,
                     ),
-
                     decoration: BoxDecoration(
                       color: const Color(0xffE8F5E9),
                       borderRadius: BorderRadius.circular(20),
                     ),
-
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
-
                       children: [
                         Container(
                           width: 6,
                           height: 6,
-
                           decoration: const BoxDecoration(
                             color: Colors.green,
                             shape: BoxShape.circle,
                           ),
                         ),
-
                         const SizedBox(width: 5),
-
                         Text(
                           'Active',
-
                           style: GoogleFonts.poppins(
                             color: Colors.green.shade700,
                             fontSize: 9.5,
@@ -713,30 +710,29 @@ class _MyClassesScreenState extends State<MyClassesScreen> {
 
               const SizedBox(height: 16),
 
-              // ==================================================
               // DETAILS
-              // ==================================================
               Container(
+                width: double.infinity,
                 padding: const EdgeInsets.all(12),
-
                 decoration: BoxDecoration(
                   color: const Color(0xffF7F9FC),
                   borderRadius: BorderRadius.circular(16),
                 ),
-
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: _detailItem(
-                        icon: Icons.tag_rounded,
-                        label: 'Class ID',
-                        value: assignment.classId.toString(),
+                        icon: Icons.class_rounded,
+                        label: 'Class',
+                        value: className,
                       ),
                     ),
 
                     Container(
                       width: 1,
                       height: 34,
+                      margin: const EdgeInsets.symmetric(horizontal: 8),
                       color: const Color(0xffE3E8EF),
                     ),
 
@@ -751,6 +747,7 @@ class _MyClassesScreenState extends State<MyClassesScreen> {
                     Container(
                       width: 1,
                       height: 34,
+                      margin: const EdgeInsets.symmetric(horizontal: 8),
                       color: const Color(0xffE3E8EF),
                     ),
 
@@ -758,7 +755,9 @@ class _MyClassesScreenState extends State<MyClassesScreen> {
                       child: _detailItem(
                         icon: Icons.subject_rounded,
                         label: 'Subject',
-                        value: assignment.subject,
+                        value: assignment.subject.isNotEmpty
+                            ? assignment.subject
+                            : '-',
                       ),
                     ),
                   ],
@@ -767,43 +766,33 @@ class _MyClassesScreenState extends State<MyClassesScreen> {
 
               const SizedBox(height: 14),
 
-              // ==================================================
-              // OPEN WORKSPACE BUTTON
-              // ==================================================
+              // OPEN CLASS WORKSPACE BUTTON
               SizedBox(
                 width: double.infinity,
                 height: 46,
-
                 child: ElevatedButton(
                   onPressed: () {
                     _openClassWorkspace(context, assignment, className);
                   },
-
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryColor,
                     foregroundColor: Colors.white,
                     elevation: 0,
-
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-
                     children: [
                       Text(
                         'Open Class Workspace',
-
                         style: GoogleFonts.poppins(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-
                       const SizedBox(width: 7),
-
                       const Icon(Icons.arrow_forward_rounded, size: 18),
                     ],
                   ),
