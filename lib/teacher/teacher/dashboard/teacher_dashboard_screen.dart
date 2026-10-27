@@ -49,7 +49,7 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _teacherCard(),
+           // _teacherCard(),
 
             const SizedBox(height: 20),
 
@@ -72,68 +72,68 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     );
   }
 
-  Widget _teacherCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
+  // Widget _teacherCard() {
+  //   return Container(
+  //     padding: const EdgeInsets.all(20),
 
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xff1565C0), Color(0xff42A5F5)],
-        ),
+  //     decoration: BoxDecoration(
+  //       gradient: const LinearGradient(
+  //         colors: [Color(0xff1565C0), Color(0xff42A5F5)],
+  //       ),
 
-        borderRadius: BorderRadius.circular(25),
-      ),
+  //       borderRadius: BorderRadius.circular(25),
+  //     ),
 
-      child: Row(
-        children: [
-          const CircleAvatar(
-            radius: 35,
+  //     child: Row(
+  //       children: [
+  //         const CircleAvatar(
+  //           radius: 35,
 
-            backgroundColor: Colors.white,
+  //           backgroundColor: Colors.white,
 
-            child: Icon(Icons.person, size: 40, color: Color(0xff1565C0)),
-          ),
+  //           child: Icon(Icons.person, size: 40, color: Color(0xff1565C0)),
+  //         ),
 
-          const SizedBox(width: 15),
+  //         const SizedBox(width: 15),
 
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  //         Expanded(
+  //           child: Column(
+  //             crossAxisAlignment: CrossAxisAlignment.start,
 
-              children: [
-                Text(
-                  "Good Morning 👋",
+  //             children: [
+  //               Text(
+  //                 "Good Morning 👋",
 
-                  style: GoogleFonts.poppins(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
-                ),
+  //                 style: GoogleFonts.poppins(
+  //                   color: Colors.white70,
+  //                   fontSize: 14,
+  //                 ),
+  //               ),
 
-                Text(
-                  "Mrs. Anitha Sharma",
+  //               Text(
+  //                 "Mrs. Anitha Sharma",
 
-                  style: GoogleFonts.poppins(
-                    fontSize: 22,
+  //                 style: GoogleFonts.poppins(
+  //                   fontSize: 22,
 
-                    fontWeight: FontWeight.bold,
+  //                   fontWeight: FontWeight.bold,
 
-                    color: Colors.white,
-                  ),
-                ),
+  //                   color: Colors.white,
+  //                 ),
+  //               ),
 
-                Text(
-                  "Mathematics Teacher",
+  //               Text(
+  //                 "Mathematics Teacher",
 
-                  style: GoogleFonts.poppins(color: Colors.white70),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  //                 style: GoogleFonts.poppins(color: Colors.white70),
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Future<void> _loadTodaySchedule() async {
     try {

@@ -1,18 +1,23 @@
+
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:myschool_app/parent/services/api_service.dart';
-import 'package:myschool_app/parent/services/auth_service.dart';
 import 'reset_password_screen.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
 
   @override
-  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+  State<ForgotPasswordScreen> createState() =>
+      _ForgotPasswordScreenState();
 }
 
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+  final TextEditingController schoolCodeController =
+      TextEditingController();
   final TextEditingController emailController = TextEditingController();
 
   bool isLoading = false;
@@ -25,7 +30,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   Future<void> _forgotPassword() async {
     FocusScope.of(context).unfocus();
 
+    final schoolCode = schoolCodeController.text.trim();
     final email = emailController.text.trim();
+
+    if (schoolCode.isEmpty) {
+      _showMessage('Please enter your School Code', isError: true);
+      return;
+    }
 
     if (email.isEmpty) {
       _showMessage('Please enter your email address', isError: true);
@@ -37,33 +48,49 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       return;
     }
 
-    setState(() {
-      isLoading = true;
-    });
+    setState(() => isLoading = true);
 
     try {
-      final response = await AuthService.forgotPassword(email: email);
+      final response = await ApiService.post(
+        '/auth/forgot-password',
+        body: {
+          'schoolCode': schoolCode,
+          'email': email,
+        },
+      );
 
       if (!mounted) return;
 
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        if (response.statusCode >= 200 && response.statusCode < 300) {
-          String responseText = response.body.trim();
+      if (response.statusCode >= 200 &&
+          response.statusCode < 300) {
+        String responseText = response.body.trim();
 
-          const prefix = 'Password reset token generated:';
+        // Backend currently returns:
+        // Password reset token generated: <token>
+        // This is suitable only for development/testing.
+        try {
+          final decoded = jsonDecode(responseText);
 
-          String token = responseText;
-
-          if (responseText.startsWith(prefix)) {
-            token = responseText.substring(prefix.length).trim();
+          if (decoded is Map) {
+            responseText =
+                decoded['message']?.toString() ?? responseText;
           }
+        } catch (_) {
+          // Response may be plain text rather than JSON.
+        }
+
+        const prefix = 'Password reset token generated:';
+
+        if (responseText.startsWith(prefix)) {
+          final token = responseText.substring(prefix.length).trim();
 
           if (token.isEmpty) {
-            _showMessage('Reset token was not received', isError: true);
+            _showMessage(
+              'Reset token was not received.',
+              isError: true,
+            );
             return;
           }
-
-          if (!mounted) return;
 
           Navigator.push(
             context,
@@ -73,21 +100,30 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           );
         } else {
           _showMessage(
-            response.body.isNotEmpty
-                ? response.body
-                : 'Unable to process request',
-            isError: true,
+            responseText.isNotEmpty
+                ? responseText
+                : 'Reset request processed.',
           );
         }
       } else {
-        final message = response.toString();
+        String message = 'Unable to process password reset request.';
 
-        _showMessage(
-          message.isNotEmpty
-              ? message
-              : 'Unable to process password reset request.',
-          isError: true,
-        );
+        try {
+          final decoded = jsonDecode(response.body);
+          if (decoded is Map) {
+            message = decoded['message']?.toString() ??
+                decoded['error']?.toString() ??
+                message;
+          } else if (response.body.trim().isNotEmpty) {
+            message = response.body.trim();
+          }
+        } catch (_) {
+          if (response.body.trim().isNotEmpty) {
+            message = response.body.trim();
+          }
+        }
+
+        _showMessage(message, isError: true);
       }
     } catch (e) {
       if (!mounted) return;
@@ -100,51 +136,102 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       );
     } finally {
       if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
+        setState(() => isLoading = false);
       }
     }
   }
 
   void _showMessage(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              isError
-                  ? Icons.error_outline_rounded
-                  : Icons.check_circle_outline_rounded,
-              color: Colors.white,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                message,
-                style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w500,
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                isError
+                    ? Icons.error_outline_rounded
+                    : Icons.check_circle_outline_rounded,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  message,
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          backgroundColor:
+              isError ? const Color(0xffD93025) : const Color(0xff188038),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        backgroundColor: isError
-            ? const Color(0xffD93025)
-            : const Color(0xff188038),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      );
+  }
+
+  InputDecoration _inputDecoration({
+    required String hint,
+    required IconData icon,
+  }) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: GoogleFonts.poppins(
+        color: textMuted,
+        fontSize: 12.5,
+      ),
+      prefixIcon: Icon(icon, color: primary),
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 17,
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: const BorderSide(color: Color(0xffE5E9F0)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: const BorderSide(color: Color(0xffE5E9F0)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: const BorderSide(
+          color: primary,
+          width: 1.6,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: GoogleFonts.poppins(
+          color: textDark,
+          fontSize: 13.5,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
 
   @override
   void dispose() {
+    schoolCodeController.dispose();
     emailController.dispose();
     super.dispose();
   }
@@ -167,173 +254,157 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  height: 92,
-                  width: 92,
-                  decoration: BoxDecoration(
-                    color: const Color(0xffEAF0FF),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.lock_reset_rounded,
-                    color: primary,
-                    size: 46,
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 28),
-
-              Center(
-                child: Text(
-                  'Reset Your Password',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(
-                    color: textDark,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              Text(
-                'Enter the email address registered with your parent account. We will send you instructions to reset your password.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  color: textMuted,
-                  fontSize: 13,
-                  height: 1.55,
-                ),
-              ),
-
-              const SizedBox(height: 30),
-
-              Text(
-                'Email Address',
-                style: GoogleFonts.poppins(
-                  color: textDark,
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              TextField(
-                controller: emailController,
-                keyboardType: TextInputType.emailAddress,
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) {
-                  if (!isLoading) {
-                    _forgotPassword();
-                  }
-                },
-                decoration: InputDecoration(
-                  hintText: 'Enter your registered email',
-                  prefixIcon: const Icon(Icons.email_outlined, color: primary),
-                  filled: true,
-                  fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 17,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: Color(0xffE5E9F0)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: Color(0xffE5E9F0)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: primary, width: 1.6),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 22),
-
-              SizedBox(
-                width: double.infinity,
-                height: 55,
-                child: ElevatedButton(
-                  onPressed: isLoading ? null : _forgotPassword,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primary,
-                    disabledBackgroundColor: const Color(0xff9EAFE9),
-                    foregroundColor: Colors.white,
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: isLoading
-                      ? const SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.4,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.send_rounded, size: 19),
-                            const SizedBox(width: 9),
-                            Text(
-                              'Send Reset Instructions',
-                              style: GoogleFonts.poppins(
-                                fontSize: 14.5,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xffEDF3FF),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: const Color(0xffDDE8FF)),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.info_outline_rounded,
-                      color: primary,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Use the email address registered by your school. If you do not receive an email, please contact your school administrator.',
-                        style: GoogleFonts.poppins(
-                          color: textMuted,
-                          fontSize: 11.5,
-                          height: 1.45,
-                        ),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      height: 72,
+                      width: 72,
+                      decoration: BoxDecoration(
+                        color: primary,
+                        borderRadius: BorderRadius.circular(22),
+                      ),
+                      child: const Icon(
+                        Icons.school_rounded,
+                        color: Colors.white,
+                        size: 39,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 12),
+                  Center(
+                    child: Text(
+                      'MySchool',
+                      style: GoogleFonts.poppins(
+                        color: primary,
+                        fontSize: 27,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 25),
+                  Container(
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(
+                        color: const Color(0xffE5E9F0),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Icon(
+                          Icons.lock_reset_rounded,
+                          color: primary,
+                          size: 42,
+                        ),
+                        const SizedBox(height: 15),
+                        Text(
+                          'Reset Your Password',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.poppins(
+                            color: textDark,
+                            fontSize: 21,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Enter your School Code and registered email address.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.poppins(
+                            color: textMuted,
+                            fontSize: 12.5,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 25),
+
+                        _buildLabel('School Code'),
+                        TextField(
+                          controller: schoolCodeController,
+                          textCapitalization: TextCapitalization.characters,
+                          autocorrect: false,
+                          textInputAction: TextInputAction.next,
+                          decoration: _inputDecoration(
+                            hint: 'Enter your School Code',
+                            icon: Icons.business_outlined,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+
+                        _buildLabel('Email Address'),
+                        TextField(
+                          controller: emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          autocorrect: false,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) {
+                            if (!isLoading) _forgotPassword();
+                          },
+                          decoration: _inputDecoration(
+                            hint: 'Enter your registered email',
+                            icon: Icons.email_outlined,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        SizedBox(
+                          height: 54,
+                          child: ElevatedButton(
+                            onPressed: isLoading ? null : _forgotPassword,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: primary,
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor:
+                                  const Color(0xff9EAFE9),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                            ),
+                            child: isLoading
+                                ? const SizedBox(
+                                    height: 22,
+                                    width: 22,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.4,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    'Continue',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Text(
+                          'If you cannot reset your password, contact your school administrator.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.poppins(
+                            color: textMuted,
+                            fontSize: 11.5,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

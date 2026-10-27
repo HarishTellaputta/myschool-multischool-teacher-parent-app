@@ -6,7 +6,7 @@ class AuthService {
   AuthService()
     : _dio = Dio(
         BaseOptions(
-          baseUrl: 'http://10.24.241.80:8080',
+          baseUrl: 'http://10.194.72.80:8081',
           connectTimeout: const Duration(seconds: 15),
           receiveTimeout: const Duration(seconds: 15),
           headers: {'Content-Type': 'application/json'},
@@ -37,19 +37,31 @@ class AuthService {
 
   // ================= LOGIN =================
 
+  // ================= LOGIN =================
+
   Future<Map<String, dynamic>> login({
+    required String schoolCode,
     required String username,
     required String password,
   }) async {
+    final normalizedSchoolCode = schoolCode.trim().toUpperCase();
+
+    final normalizedUsername = username.trim();
+
     print('========== LOGIN REQUEST ==========');
     print('URL      : ${_dio.options.baseUrl}/auth/login');
-    print('USERNAME : $username');
+    print('SCHOOL   : $normalizedSchoolCode');
+    print('USERNAME : $normalizedUsername');
     print('===================================');
 
     try {
       final response = await _dio.post(
         '/auth/login',
-        data: {'username': username, 'password': password},
+        data: {
+          'schoolCode': normalizedSchoolCode,
+          'username': normalizedUsername,
+          'password': password,
+        },
       );
 
       _logResponse(response);
@@ -63,14 +75,20 @@ class AuthService {
 
   // ================= REGISTER =================
 
+  // ================= REGISTER =================
+
   Future<Map<String, dynamic>> register({
+    required String schoolCode,
     required String username,
     required String email,
     required String password,
     required String role,
   }) async {
+    final normalizedSchoolCode = schoolCode.trim();
+
     print('========== REGISTER REQUEST ========');
     print('URL      : ${_dio.options.baseUrl}/auth/register');
+    print('SCHOOL   : $normalizedSchoolCode');
     print('USERNAME : $username');
     print('EMAIL    : $email');
     print('ROLE     : $role');
@@ -80,8 +98,9 @@ class AuthService {
       final response = await _dio.post(
         '/auth/register',
         data: {
-          'username': username,
-          'email': email,
+          'schoolCode': normalizedSchoolCode,
+          'username': username.trim(),
+          'email': email.trim(),
           'password': password,
           'role': role,
         },
@@ -95,7 +114,6 @@ class AuthService {
       rethrow;
     }
   }
-
   // ================= FORGOT PASSWORD =================
 
   // ================= FORGOT PASSWORD =================

@@ -1,5 +1,5 @@
-
 import 'package:flutter/material.dart';
+import 'package:myschool_app/teacher/home/teacher_home_screen.dart';
 
 import '../auth/auth_storage.dart';
 import '../models/call_parent_model.dart';
@@ -8,6 +8,7 @@ import '../models/section_model.dart';
 import '../models/student_model.dart';
 import '../services/call_parent_service.dart';
 import '../services/student_service.dart';
+
 
 class CallParentScreen extends StatefulWidget {
   const CallParentScreen({super.key});
@@ -30,8 +31,7 @@ class _CallParentScreenState extends State<CallParentScreen> {
   ClassModel? _selectedClass;
   SectionModel? _selectedSection;
 
-  final TextEditingController _searchController =
-      TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
 
   bool _loading = true;
   bool _loadingSections = false;
@@ -81,8 +81,7 @@ class _CallParentScreenState extends State<CallParentScreen> {
         _service = service;
         _studentService = studentService;
         _classes = results[0] as List<ClassModel>;
-        _parentContacts =
-            results[1] as Map<int, Map<String, String>>;
+        _parentContacts = results[1] as Map<int, Map<String, String>>;
         _loading = false;
         _error = null;
       });
@@ -215,14 +214,15 @@ class _CallParentScreenState extends State<CallParentScreen> {
     final query = _searchController.text.trim().toLowerCase();
 
     final filtered = _students.where((student) {
-      final matchesQuery = query.isEmpty ||
+      final matchesQuery =
+          query.isEmpty ||
           student.studentName.toLowerCase().contains(query) ||
           student.parentName.toLowerCase().contains(query) ||
           (student.parentPhone ?? '').toLowerCase().contains(query) ||
           (student.admissionNo ?? '').toLowerCase().contains(query);
 
-      final matchesSection = _selectedSection == null ||
-          student.sectionId == _selectedSection!.id;
+      final matchesSection =
+          _selectedSection == null || student.sectionId == _selectedSection!.id;
 
       return matchesQuery && matchesSection;
     }).toList();
@@ -254,10 +254,7 @@ class _CallParentScreenState extends State<CallParentScreen> {
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -270,6 +267,15 @@ class _CallParentScreenState extends State<CallParentScreen> {
     return Scaffold(
       backgroundColor: _background,
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const TeacherHomeScreen()),
+              (route) => false,
+            );
+          },
+        ),
         backgroundColor: _primary,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -279,10 +285,7 @@ class _CallParentScreenState extends State<CallParentScreen> {
           children: [
             Text(
               'Call Parents',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 20,
-              ),
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
             ),
             SizedBox(height: 2),
             Text(
@@ -305,12 +308,10 @@ class _CallParentScreenState extends State<CallParentScreen> {
         ],
       ),
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: _primary),
-            )
+          ? const Center(child: CircularProgressIndicator(color: _primary))
           : _error != null && _service == null
-              ? _buildInitialError()
-              : _buildContent(),
+          ? _buildInitialError()
+          : _buildContent(),
     );
   }
 
@@ -374,9 +375,7 @@ class _CallParentScreenState extends State<CallParentScreen> {
       padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
       decoration: const BoxDecoration(
         color: _primary,
-        borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(28),
-        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
       ),
       child: Row(
         children: [
@@ -409,10 +408,7 @@ class _CallParentScreenState extends State<CallParentScreen> {
                 SizedBox(height: 5),
                 Text(
                   'Quick and easy access to parent contacts.',
-                  style: TextStyle(
-                    color: Color(0xFFDCE7FF),
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Color(0xFFDCE7FF), fontSize: 12),
                 ),
               ],
             ),
@@ -514,9 +510,8 @@ class _CallParentScreenState extends State<CallParentScreen> {
                 );
               }),
             ],
-            onChanged: _selectedClass == null ||
-                    _loadingSections ||
-                    _sections.isEmpty
+            onChanged:
+                _selectedClass == null || _loadingSections || _sections.isEmpty
                 ? null
                 : _onSectionChanged,
           ),
@@ -524,19 +519,12 @@ class _CallParentScreenState extends State<CallParentScreen> {
             const SizedBox(height: 10),
             const Row(
               children: [
-                Icon(
-                  Icons.info_outline_rounded,
-                  size: 15,
-                  color: _textMuted,
-                ),
+                Icon(Icons.info_outline_rounded, size: 15, color: _textMuted),
                 SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     'All sections are shown by default.',
-                    style: TextStyle(
-                      color: _textMuted,
-                      fontSize: 11,
-                    ),
+                    style: TextStyle(color: _textMuted, fontSize: 11),
                   ),
                 ),
               ],
@@ -556,10 +544,7 @@ class _CallParentScreenState extends State<CallParentScreen> {
       prefixIcon: Icon(icon, color: _primary, size: 21),
       filled: true,
       fillColor: const Color(0xFFF8FAFF),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 15,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: Color(0xFFE6EAF2)),
@@ -570,10 +555,7 @@ class _CallParentScreenState extends State<CallParentScreen> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(
-          color: _primary,
-          width: 1.4,
-        ),
+        borderSide: const BorderSide(color: _primary, width: 1.4),
       ),
     );
   }
@@ -618,21 +600,14 @@ class _CallParentScreenState extends State<CallParentScreen> {
           _primary,
         ),
         const SizedBox(width: 6),
-        _countChip(
-          Icons.call_outlined,
-          '$withPhone callable',
-          _green,
-        ),
+        _countChip(Icons.call_outlined, '$withPhone callable', _green),
       ],
     );
   }
 
   Widget _countChip(IconData icon, String label, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 9,
-        vertical: 7,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.09),
         borderRadius: BorderRadius.circular(11),
@@ -664,10 +639,7 @@ class _CallParentScreenState extends State<CallParentScreen> {
       controller: _searchController,
       decoration: InputDecoration(
         hintText: 'Search student, parent or phone...',
-        prefixIcon: const Icon(
-          Icons.search_rounded,
-          color: _textMuted,
-        ),
+        prefixIcon: const Icon(Icons.search_rounded, color: _textMuted),
         suffixIcon: _searchController.text.isEmpty
             ? null
             : IconButton(
@@ -692,10 +664,7 @@ class _CallParentScreenState extends State<CallParentScreen> {
   Widget _buildStudentList() {
     if (_filteredStudents.isEmpty) {
       return Container(
-        padding: const EdgeInsets.symmetric(
-          vertical: 35,
-          horizontal: 20,
-        ),
+        padding: const EdgeInsets.symmetric(vertical: 35, horizontal: 20),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
@@ -722,10 +691,7 @@ class _CallParentScreenState extends State<CallParentScreen> {
             const Text(
               'Try another class, section or search term.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: _textMuted,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: _textMuted, fontSize: 12),
             ),
           ],
         ),
@@ -752,9 +718,7 @@ class _CallParentScreenState extends State<CallParentScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(19),
-            border: Border.all(
-              color: const Color(0xFFEBEFF6),
-            ),
+            border: Border.all(color: const Color(0xFFEBEFF6)),
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFF263B65).withValues(alpha: 0.035),
@@ -804,10 +768,7 @@ class _CallParentScreenState extends State<CallParentScreen> {
                       'Parent: $parentName',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _textMuted,
-                        fontSize: 12,
-                      ),
+                      style: const TextStyle(color: _textMuted, fontSize: 12),
                     ),
                     const SizedBox(height: 5),
                     Row(
@@ -836,20 +797,14 @@ class _CallParentScreenState extends State<CallParentScreen> {
                       const SizedBox(height: 5),
                       Text(
                         'Admission No: ${student.admissionNo}',
-                        style: const TextStyle(
-                          color: _textMuted,
-                          fontSize: 11,
-                        ),
+                        style: const TextStyle(color: _textMuted, fontSize: 11),
                       ),
                     ],
                     if (student.sectionName!.isNotEmpty) ...[
                       const SizedBox(height: 5),
                       Text(
                         'Section: ${student.sectionName}',
-                        style: const TextStyle(
-                          color: _textMuted,
-                          fontSize: 11,
-                        ),
+                        style: const TextStyle(color: _textMuted, fontSize: 11),
                       ),
                     ],
                   ],
@@ -909,10 +864,7 @@ class _CallParentScreenState extends State<CallParentScreen> {
       ),
       child: Text(
         _error!,
-        style: const TextStyle(
-          color: Colors.red,
-          fontSize: 12,
-        ),
+        style: const TextStyle(color: Colors.red, fontSize: 12),
       ),
     );
   }
@@ -924,16 +876,9 @@ class _CallParentScreenState extends State<CallParentScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.cloud_off_rounded,
-              color: Colors.red,
-              size: 45,
-            ),
+            const Icon(Icons.cloud_off_rounded, color: Colors.red, size: 45),
             const SizedBox(height: 12),
-            Text(
-              _error ?? 'Something went wrong',
-              textAlign: TextAlign.center,
-            ),
+            Text(_error ?? 'Something went wrong', textAlign: TextAlign.center),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: () {

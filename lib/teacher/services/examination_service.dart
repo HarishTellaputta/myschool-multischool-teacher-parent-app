@@ -12,7 +12,7 @@ class ExaminationService {
   ExaminationService(String token)
       : _dio = Dio(
           BaseOptions(
-            baseUrl: 'http://10.24.241.80:8080',
+            baseUrl: 'http://10.194.72.80:8081',
             connectTimeout:
                 const Duration(seconds: 15),
             receiveTimeout:
