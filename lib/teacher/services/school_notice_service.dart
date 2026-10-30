@@ -6,7 +6,7 @@ import '../auth/auth_storage.dart';
 import '../models/school_notice_model.dart';
 
 class SchoolNoticeService {
-  static const String baseUrl = 'http://10.194.72.80:8081';
+  static const String baseUrl = 'http://10.51.189.80:8081';
 
   Future<List<SchoolNoticeModel>> getRelevantNotices() async {
     final token = await AuthStorage.getToken();
