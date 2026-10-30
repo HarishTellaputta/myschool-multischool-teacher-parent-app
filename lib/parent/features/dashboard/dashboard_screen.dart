@@ -324,7 +324,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Smart School',
+                  'My School',
                   style: TextStyle(
                     color: textMuted,
                     fontSize: 10,
@@ -538,7 +538,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                             SizedBox(height: 4),
                             Text(
-                              'Smart School',
+                              'My School',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 18,

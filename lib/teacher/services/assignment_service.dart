@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import '../models/assignment_model.dart';
 
 class AssignmentService {
-  static const String baseUrl = 'http://10.51.189.80:8081';
+  static const String baseUrl = 'http://10.145.230.80:8081';
 
   final String token;
 

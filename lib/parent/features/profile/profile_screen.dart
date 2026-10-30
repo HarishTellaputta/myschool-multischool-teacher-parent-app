@@ -965,7 +965,7 @@ Widget _studentCard(StudentResponse student) {
     return Column(
       children: [
         Text(
-          'Smart School',
+          'my School',
           style: GoogleFonts.poppins(
             color: const Color(0xff9AA3B2),
             fontSize: 11,

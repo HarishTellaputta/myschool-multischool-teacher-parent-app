@@ -9,17 +9,11 @@ class LeaveRequestScreen extends StatefulWidget {
   const LeaveRequestScreen({super.key});
 
   @override
-  State<LeaveRequestScreen> createState() =>
-      _LeaveRequestScreenState();
+  State<LeaveRequestScreen> createState() => _LeaveRequestScreenState();
 }
 
-class _LeaveRequestScreenState
-    extends State<LeaveRequestScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  final TextEditingController _searchController =
-      TextEditingController();
+class _LeaveRequestScreenState extends State<LeaveRequestScreen> {
+  final TextEditingController _searchController = TextEditingController();
 
   String _searchText = '';
 
@@ -48,17 +42,11 @@ class _LeaveRequestScreenState
   void initState() {
     super.initState();
 
-    _tabController = TabController(
-      length: 3,
-      vsync: this,
-    );
-
     _searchController.addListener(() {
       if (!mounted) return;
 
       setState(() {
-        _searchText =
-            _searchController.text.trim().toLowerCase();
+        _searchText = _searchController.text.trim().toLowerCase();
       });
     });
 
@@ -67,7 +55,6 @@ class _LeaveRequestScreenState
 
   @override
   void dispose() {
-    _tabController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -89,29 +76,21 @@ class _LeaveRequestScreenState
       final teacherId = await AuthStorage.getTeacherId();
 
       if (token == null || token.isEmpty) {
-        throw Exception(
-          'Login session expired. Please login again.',
-        );
+        throw Exception('Login session expired. Please login again.');
       }
 
       if (teacherId == null) {
-        throw Exception(
-          'Teacher ID not found. Please login again.',
-        );
+        throw Exception('Teacher ID not found. Please login again.');
       }
 
-      debugPrint(
-        '========== LOAD TEACHER LEAVES ==========',
-      );
+      debugPrint('========== LOAD TEACHER LEAVES ==========');
       debugPrint('Teacher ID: $teacherId');
 
       final service = TeacherLeaveService(token);
 
       final leaves = await service.getMyLeaves(teacherId);
 
-      leaves.sort(
-        (a, b) => b.startDate.compareTo(a.startDate),
-      );
+      leaves.sort((a, b) => b.startDate.compareTo(a.startDate));
 
       if (!mounted) return;
 
@@ -136,60 +115,69 @@ class _LeaveRequestScreenState
   // ============================================================
 
   int get pendingCount {
-    return _leaveRequests.where(
-      (leave) =>
-          leave.status.toUpperCase() == 'PENDING',
-    ).length;
+    return _leaveRequests
+        .where((leave) => leave.status.toUpperCase() == 'PENDING')
+        .length;
   }
 
   int get approvedCount {
-    return _leaveRequests.where(
-      (leave) =>
-          leave.status.toUpperCase() == 'APPROVED',
-    ).length;
+    return _leaveRequests
+        .where((leave) => leave.status.toUpperCase() == 'APPROVED')
+        .length;
   }
 
   int get rejectedCount {
-    return _leaveRequests.where(
-      (leave) =>
-          leave.status.toUpperCase() == 'REJECTED',
-    ).length;
+    return _leaveRequests
+        .where((leave) => leave.status.toUpperCase() == 'REJECTED')
+        .length;
   }
 
   // ============================================================
-  // FILTER
+  // APPLIED LEAVE COUNT
   // ============================================================
 
-  List<TeacherLeaveModel> _filteredLeaves(
-    String status,
-  ) {
+  List<TeacherLeaveModel> get _appliedLeaves {
     return _leaveRequests.where((leave) {
-      final leaveStatus =
-          leave.status.toUpperCase();
+      final status = leave.status.trim().toUpperCase();
 
-      if (leaveStatus != status) {
-        return false;
-      }
-
-      if (_searchText.isEmpty) {
-        return true;
-      }
-
-      final leaveType =
-          leave.leaveType.toLowerCase();
-
-      final reason =
-          (leave.reason ?? '').toLowerCase();
-
-      final rejectionReason =
-          (leave.rejectionReason ?? '').toLowerCase();
-
-      return leaveType.contains(_searchText) ||
-          reason.contains(_searchText) ||
-          rejectionReason.contains(_searchText);
+      return status == 'APPLIED' ||
+          status == 'SUBMITTED' ||
+          status == 'PENDING';
     }).toList();
   }
 
+  int get totalAppliedLeaves {
+    return _appliedLeaves.length;
+  }
+
+  // ============================================================
+  // SEARCH FILTER
+  // ============================================================
+
+  List<TeacherLeaveModel> _filteredLeaves() {
+    final leaves = _appliedLeaves;
+
+    if (_searchText.isEmpty) {
+      return leaves;
+    }
+
+    return leaves.where((leave) {
+      final leaveType = leave.leaveType.toLowerCase();
+      final reason = (leave.reason ?? '').toLowerCase();
+
+      return leaveType.contains(_searchText) || reason.contains(_searchText);
+    }).toList();
+  }
+
+  // ============================================================
+  // CHECK APPLIED STATUS
+  // ============================================================
+
+  bool _isAppliedStatus(String status) {
+    final value = status.trim().toUpperCase();
+
+    return value == 'APPLIED' || value == 'SUBMITTED' || value == 'PENDING';
+  }
   // ============================================================
   // BUILD
   // ============================================================
@@ -203,14 +191,22 @@ class _LeaveRequestScreenState
         child: Column(
           children: [
             _buildPremiumHeader(),
-            Expanded(
-              child: _buildBody(),
-            ),
+            Expanded(child: _buildBody()),
           ],
         ),
       ),
       floatingActionButton: _buildFloatingActionButton(),
     );
+  }
+
+  String _normalizedStatus(String status) {
+    final value = status.trim().toUpperCase();
+
+    if (value == 'APPLIED' || value == 'SUBMITTED') {
+      return 'PENDING';
+    }
+
+    return value;
   }
 
   // ============================================================
@@ -223,11 +219,7 @@ class _LeaveRequestScreenState
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            primaryDark,
-            primaryColor,
-            Color(0xff1976D2),
-          ],
+          colors: [primaryDark, primaryColor, Color(0xff1976D2)],
         ),
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(30),
@@ -237,12 +229,7 @@ class _LeaveRequestScreenState
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-              20,
-              48,
-              20,
-              18,
-            ),
+            padding: const EdgeInsets.fromLTRB(20, 48, 20, 18),
             child: Row(
               children: [
                 _headerIconButton(
@@ -254,8 +241,7 @@ class _LeaveRequestScreenState
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Leave Management',
@@ -269,9 +255,7 @@ class _LeaveRequestScreenState
                       Text(
                         'Manage your leave requests',
                         style: GoogleFonts.poppins(
-                          color: Colors.white.withValues(
-                            alpha: 0.78,
-                          ),
+                          color: Colors.white.withValues(alpha: 0.78),
                           fontSize: 11,
                           fontWeight: FontWeight.w400,
                         ),
@@ -281,34 +265,22 @@ class _LeaveRequestScreenState
                 ),
                 _headerIconButton(
                   icon: Icons.refresh_rounded,
-                  onTap: _isLoading
-                      ? null
-                      : _loadLeaves,
+                  onTap: _isLoading ? null : _loadLeaves,
                 ),
               ],
             ),
           ),
 
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-              18,
-              0,
-              18,
-              20,
-            ),
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
             child: _buildHeaderOverview(),
           ),
-
-          _buildTabs(),
         ],
       ),
     );
   }
 
-  Widget _headerIconButton({
-    required IconData icon,
-    VoidCallback? onTap,
-  }) {
+  Widget _headerIconButton({required IconData icon, VoidCallback? onTap}) {
     return Material(
       color: Colors.white.withValues(alpha: 0.14),
       borderRadius: BorderRadius.circular(14),
@@ -318,11 +290,7 @@ class _LeaveRequestScreenState
         child: SizedBox(
           height: 44,
           width: 44,
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: 21,
-          ),
+          child: Icon(icon, color: Colors.white, size: 21),
         ),
       ),
     );
@@ -334,9 +302,7 @@ class _LeaveRequestScreenState
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.13),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.15),
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
       ),
       child: Row(
         children: [
@@ -354,39 +320,33 @@ class _LeaveRequestScreenState
             ),
           ),
           const SizedBox(width: 13),
+
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${_leaveRequests.length} Leave Requests',
+                  'Total Applied Leaves',
                   style: GoogleFonts.poppins(
                     color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Text(
-                  pendingCount > 0
-                      ? '$pendingCount request${pendingCount == 1 ? '' : 's'} waiting for approval'
-                      : 'You are all caught up',
+                  'Your leave application history',
                   style: GoogleFonts.poppins(
-                    color: Colors.white.withValues(
-                      alpha: 0.76,
-                    ),
+                    color: Colors.white.withValues(alpha: 0.76),
                     fontSize: 10,
                   ),
                 ),
               ],
             ),
           ),
+
           Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 8,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(14),
@@ -394,107 +354,22 @@ class _LeaveRequestScreenState
             child: Column(
               children: [
                 Text(
-                  pendingCount.toString(),
+                  totalAppliedLeaves.toString(),
                   style: GoogleFonts.poppins(
                     color: primaryColor,
-                    fontSize: 17,
+                    fontSize: 21,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 Text(
-                  'Pending',
+                  'Applied',
                   style: GoogleFonts.poppins(
                     color: Colors.grey.shade600,
-                    fontSize: 8,
+                    fontSize: 9,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ============================================================
-  // TABS
-  // ============================================================
-
-  Widget _buildTabs() {
-    return Container(
-      height: 54,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-      ),
-      child: TabBar(
-        controller: _tabController,
-        indicator: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(13),
-        ),
-        indicatorSize: TabBarIndicatorSize.tab,
-        indicatorPadding: const EdgeInsets.symmetric(
-          vertical: 7,
-          horizontal: 4,
-        ),
-        dividerColor: Colors.transparent,
-        labelColor: primaryColor,
-        unselectedLabelColor:
-            Colors.white.withValues(alpha: 0.70),
-        labelStyle: GoogleFonts.poppins(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-        ),
-        unselectedLabelStyle: GoogleFonts.poppins(
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-        ),
-        tabs: [
-          _tabItem(
-            'Pending',
-            pendingCount,
-          ),
-          _tabItem(
-            'Approved',
-            approvedCount,
-          ),
-          _tabItem(
-            'Rejected',
-            rejectedCount,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _tabItem(
-    String title,
-    int count,
-  ) {
-    return Tab(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(title),
-          const SizedBox(width: 5),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 6,
-              vertical: 2,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(
-                alpha: 0.06,
-              ),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              count.toString(),
-              style: GoogleFonts.poppins(
-                fontSize: 8,
-                fontWeight: FontWeight.w700,
-              ),
             ),
           ),
         ],
@@ -519,32 +394,17 @@ class _LeaveRequestScreenState
       children: [
         _buildSearchBar(),
         const SizedBox(height: 12),
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              _buildLeaveList('PENDING'),
-              _buildLeaveList('APPROVED'),
-              _buildLeaveList('REJECTED'),
-            ],
-          ),
-        ),
+        Expanded(child: _buildLeaveList()),
       ],
     );
   }
-
   // ============================================================
   // SEARCH
   // ============================================================
 
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        18,
-        16,
-        18,
-        0,
-      ),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 0),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -559,13 +419,9 @@ class _LeaveRequestScreenState
         ),
         child: TextField(
           controller: _searchController,
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
+          style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500),
           decoration: InputDecoration(
-            hintText:
-                'Search leave type or reason...',
+            hintText: 'Search leave type or reason...',
             hintStyle: GoogleFonts.poppins(
               fontSize: 11,
               color: Colors.grey.shade500,
@@ -580,17 +436,11 @@ class _LeaveRequestScreenState
                     onPressed: () {
                       _searchController.clear();
                     },
-                    icon: const Icon(
-                      Icons.close_rounded,
-                      size: 18,
-                    ),
+                    icon: const Icon(Icons.close_rounded, size: 18),
                   )
                 : null,
             border: InputBorder.none,
-            contentPadding:
-                const EdgeInsets.symmetric(
-              vertical: 15,
-            ),
+            contentPadding: const EdgeInsets.symmetric(vertical: 15),
           ),
         ),
       ),
@@ -600,22 +450,18 @@ class _LeaveRequestScreenState
   // ============================================================
   // LEAVE LIST
   // ============================================================
-
-  Widget _buildLeaveList(
-    String status,
-  ) {
-    final leaves = _filteredLeaves(status);
+  Widget _buildLeaveList() {
+    final leaves = _filteredLeaves();
 
     if (leaves.isEmpty) {
       return RefreshIndicator(
         color: primaryColor,
         onRefresh: _loadLeaves,
         child: ListView(
-          physics:
-              const AlwaysScrollableScrollPhysics(),
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
             const SizedBox(height: 80),
-            _buildEmptyState(status),
+            _buildAppliedEmptyState(),
             const SizedBox(height: 120),
           ],
         ),
@@ -626,14 +472,8 @@ class _LeaveRequestScreenState
       color: primaryColor,
       onRefresh: _loadLeaves,
       child: ListView.builder(
-        physics:
-            const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(
-          18,
-          4,
-          18,
-          110,
-        ),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(18, 4, 18, 110),
         itemCount: leaves.length,
         itemBuilder: (context, index) {
           return _buildLeaveCard(leaves[index]);
@@ -642,34 +482,75 @@ class _LeaveRequestScreenState
     );
   }
 
+  Widget _buildAppliedEmptyState() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 35),
+      child: Column(
+        children: [
+          Container(
+            height: 90,
+            width: 90,
+            decoration: BoxDecoration(
+              color: primaryColor.withValues(alpha: 0.08),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.event_busy_rounded,
+              size: 42,
+              color: primaryColor.withValues(alpha: 0.65),
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          Text(
+            _searchText.isEmpty
+                ? 'No Leave Applications'
+                : 'No Matching Leaves',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xff222B3A),
+            ),
+          ),
+
+          const SizedBox(height: 7),
+
+          Text(
+            _searchText.isEmpty
+                ? 'Your applied leave requests will appear here. Tap Apply Leave to submit a new request.'
+                : 'Try searching with a different leave type or reason.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.poppins(
+              fontSize: 10.5,
+              height: 1.5,
+              color: Colors.grey.shade600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
   // ============================================================
   // LEAVE CARD
   // ============================================================
 
-  Widget _buildLeaveCard(
-    TeacherLeaveModel leave,
-  ) {
-    final status = leave.status.toUpperCase();
+  Widget _buildLeaveCard(TeacherLeaveModel leave) {
+    final status = leave.status.trim().toUpperCase();
 
     final statusColor = _statusColor(status);
 
-    final isPending = status == 'PENDING';
+    final isApplied = _isAppliedStatus(status);
 
     return Container(
-      margin: const EdgeInsets.only(
-        bottom: 14,
-      ),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: Colors.grey.shade100,
-        ),
+        border: Border.all(color: Colors.grey.shade100),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(
-              alpha: 0.045,
-            ),
+            color: Colors.black.withValues(alpha: 0.045),
             blurRadius: 18,
             offset: const Offset(0, 7),
           ),
@@ -678,15 +559,9 @@ class _LeaveRequestScreenState
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-              16,
-              16,
-              16,
-              14,
-            ),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // TOP
                 Row(
@@ -699,21 +574,14 @@ class _LeaveRequestScreenState
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            statusColor.withValues(
-                              alpha: 0.18,
-                            ),
-                            statusColor.withValues(
-                              alpha: 0.07,
-                            ),
+                            statusColor.withValues(alpha: 0.18),
+                            statusColor.withValues(alpha: 0.07),
                           ],
                         ),
-                        borderRadius:
-                            BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                       child: Icon(
-                        _leaveTypeIcon(
-                          leave.leaveType,
-                        ),
+                        _leaveTypeIcon(leave.leaveType),
                         color: statusColor,
                         size: 24,
                       ),
@@ -721,21 +589,16 @@ class _LeaveRequestScreenState
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             leave.leaveType,
                             maxLines: 1,
-                            overflow:
-                                TextOverflow.ellipsis,
-                            style:
-                                GoogleFonts.poppins(
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.poppins(
                               fontSize: 15,
-                              fontWeight:
-                                  FontWeight.w700,
-                              color:
-                                  const Color(0xff172033),
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xff172033),
                             ),
                           ),
                           const SizedBox(height: 3),
@@ -743,22 +606,16 @@ class _LeaveRequestScreenState
                             leave.id > 0
                                 ? 'Leave #${leave.id}'
                                 : 'Leave Request',
-                            style:
-                                GoogleFonts.poppins(
+                            style: GoogleFonts.poppins(
                               fontSize: 9,
-                              color:
-                                  Colors.grey.shade500,
-                              fontWeight:
-                                  FontWeight.w500,
+                              color: Colors.grey.shade500,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    _statusBadge(
-                      status,
-                      statusColor,
-                    ),
+                    _statusBadge(status, statusColor),
                   ],
                 ),
 
@@ -768,10 +625,8 @@ class _LeaveRequestScreenState
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color:
-                        const Color(0xffF7F9FC),
-                    borderRadius:
-                        BorderRadius.circular(17),
+                    color: const Color(0xffF7F9FC),
+                    borderRadius: BorderRadius.circular(17),
                   ),
                   child: Column(
                     children: [
@@ -785,19 +640,15 @@ class _LeaveRequestScreenState
                           const SizedBox(width: 9),
                           Expanded(
                             child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   'LEAVE PERIOD',
-                                  style:
-                                      GoogleFonts.poppins(
+                                  style: GoogleFonts.poppins(
                                     fontSize: 8,
                                     letterSpacing: 0.7,
-                                    fontWeight:
-                                        FontWeight.w700,
-                                    color: Colors
-                                        .grey.shade500,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.grey.shade500,
                                   ),
                                 ),
                                 const SizedBox(height: 3),
@@ -806,49 +657,33 @@ class _LeaveRequestScreenState
                                     leave.startDate,
                                     leave.endDate,
                                   ),
-                                  style:
-                                      GoogleFonts.poppins(
+                                  style: GoogleFonts.poppins(
                                     fontSize: 12,
-                                    fontWeight:
-                                        FontWeight.w700,
-                                    color:
-                                        const Color(
-                                      0xff202838,
-                                    ),
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xff202838),
                                   ),
                                 ),
                               ],
                             ),
                           ),
                           Container(
-                            padding:
-                                const EdgeInsets
-                                    .symmetric(
+                            padding: const EdgeInsets.symmetric(
                               horizontal: 9,
                               vertical: 7,
                             ),
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius:
-                                  BorderRadius.circular(
-                                11,
-                              ),
-                              border: Border.all(
-                                color:
-                                    Colors.grey.shade200,
-                              ),
+                              borderRadius: BorderRadius.circular(11),
+                              border: Border.all(color: Colors.grey.shade200),
                             ),
                             child: Column(
                               children: [
                                 Text(
                                   '${_calculateDays(leave.startDate, leave.endDate)}',
-                                  style:
-                                      GoogleFonts.poppins(
+                                  style: GoogleFonts.poppins(
                                     fontSize: 14,
-                                    fontWeight:
-                                        FontWeight.w800,
-                                    color:
-                                        primaryColor,
+                                    fontWeight: FontWeight.w800,
+                                    color: primaryColor,
                                   ),
                                 ),
                                 Text(
@@ -859,13 +694,10 @@ class _LeaveRequestScreenState
                                           1
                                       ? 'DAY'
                                       : 'DAYS',
-                                  style:
-                                      GoogleFonts.poppins(
+                                  style: GoogleFonts.poppins(
                                     fontSize: 7,
-                                    fontWeight:
-                                        FontWeight.w700,
-                                    color: Colors
-                                        .grey.shade500,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.grey.shade500,
                                   ),
                                 ),
                               ],
@@ -879,13 +711,10 @@ class _LeaveRequestScreenState
 
                 // REASON
                 if (leave.reason != null &&
-                    leave.reason!
-                        .trim()
-                        .isNotEmpty) ...[
+                    leave.reason!.trim().isNotEmpty) ...[
                   const SizedBox(height: 13),
                   _infoRow(
-                    icon:
-                        Icons.notes_rounded,
+                    icon: Icons.notes_rounded,
                     title: 'Reason',
                     value: leave.reason!,
                     color: Colors.orange,
@@ -895,23 +724,17 @@ class _LeaveRequestScreenState
                 // APPLIED
                 const SizedBox(height: 13),
                 _infoRow(
-                  icon:
-                      Icons.schedule_rounded,
+                  icon: Icons.schedule_rounded,
                   title: 'Applied',
-                  value: _formatDateTime(
-                    leave.appliedAt ??
-                        leave.createdAt,
-                  ),
+                  value: _formatDateTime(leave.appliedAt ?? leave.createdAt),
                   color: primaryColor,
                 ),
 
                 // APPROVED BY
-                if (status == 'APPROVED' &&
-                    leave.approvedBy != null) ...[
+                if (status == 'APPROVED' && leave.approvedBy != null) ...[
                   const SizedBox(height: 10),
                   _infoRow(
-                    icon:
-                        Icons.verified_rounded,
+                    icon: Icons.verified_rounded,
                     title: 'Approved by',
                     value: leave.approvedBy!,
                     color: Colors.green,
@@ -919,16 +742,12 @@ class _LeaveRequestScreenState
                 ],
 
                 // APPROVED AT
-                if (status == 'APPROVED' &&
-                    leave.approvedAt != null) ...[
+                if (status == 'APPROVED' && leave.approvedAt != null) ...[
                   const SizedBox(height: 10),
                   _infoRow(
-                    icon:
-                        Icons.check_circle_outline,
+                    icon: Icons.check_circle_outline,
                     title: 'Approved on',
-                    value: _formatDateTime(
-                      leave.approvedAt,
-                    ),
+                    value: _formatDateTime(leave.approvedAt),
                     color: Colors.green,
                   ),
                 ],
@@ -936,41 +755,28 @@ class _LeaveRequestScreenState
                 // REJECTION
                 if (status == 'REJECTED' &&
                     leave.rejectionReason != null &&
-                    leave.rejectionReason!
-                        .trim()
-                        .isNotEmpty) ...[
+                    leave.rejectionReason!.trim().isNotEmpty) ...[
                   const SizedBox(height: 13),
-                  _buildRejectionBox(
-                    leave.rejectionReason!,
-                  ),
+                  _buildRejectionBox(leave.rejectionReason!),
                 ],
               ],
             ),
           ),
 
           // ACTIONS
-          if (isPending)
-            _buildPendingActions(leave),
+          if (isApplied) _buildPendingActions(leave),
         ],
       ),
     );
   }
 
-  Widget _statusBadge(
-    String status,
-    Color color,
-  ) {
+  Widget _statusBadge(String status, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 7,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withValues(alpha: 0.12),
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.12)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -978,10 +784,7 @@ class _LeaveRequestScreenState
           Container(
             height: 6,
             width: 6,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 5),
           Text(
@@ -1004,30 +807,21 @@ class _LeaveRequestScreenState
     required Color color,
   }) {
     return Row(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           height: 28,
           width: 28,
           decoration: BoxDecoration(
-            color: color.withValues(
-              alpha: 0.09,
-            ),
-            borderRadius:
-                BorderRadius.circular(9),
+            color: color.withValues(alpha: 0.09),
+            borderRadius: BorderRadius.circular(9),
           ),
-          child: Icon(
-            icon,
-            color: color,
-            size: 15,
-          ),
+          child: Icon(icon, color: color, size: 15),
         ),
         const SizedBox(width: 9),
         Expanded(
           child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 title,
@@ -1054,34 +848,24 @@ class _LeaveRequestScreenState
     );
   }
 
-  Widget _buildRejectionBox(
-    String reason,
-  ) {
+  Widget _buildRejectionBox(String reason) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
         color: const Color(0xfffff5f5),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: Colors.red.withValues(
-            alpha: 0.10,
-          ),
-        ),
+        border: Border.all(color: Colors.red.withValues(alpha: 0.10)),
       ),
       child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             height: 30,
             width: 30,
             decoration: BoxDecoration(
-              color: Colors.red.withValues(
-                alpha: 0.10,
-              ),
-              borderRadius:
-                  BorderRadius.circular(9),
+              color: Colors.red.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(9),
             ),
             child: Icon(
               Icons.info_outline_rounded,
@@ -1092,8 +876,7 @@ class _LeaveRequestScreenState
           const SizedBox(width: 9),
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Rejection Reason',
@@ -1121,27 +904,16 @@ class _LeaveRequestScreenState
     );
   }
 
-  Widget _buildPendingActions(
-    TeacherLeaveModel leave,
-  ) {
+  Widget _buildPendingActions(TeacherLeaveModel leave) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(
-        16,
-        12,
-        16,
-        14,
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
       decoration: BoxDecoration(
         color: const Color(0xffFBFCFE),
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(22),
           bottomRight: Radius.circular(22),
         ),
-        border: Border(
-          top: BorderSide(
-            color: Colors.grey.shade100,
-          ),
-        ),
+        border: Border(top: BorderSide(color: Colors.grey.shade100)),
       ),
       child: Row(
         children: [
@@ -1153,9 +925,7 @@ class _LeaveRequestScreenState
               onPressed: _isSubmitting
                   ? null
                   : () {
-                      _showApplyLeaveDialog(
-                        existingLeave: leave,
-                      );
+                      _showApplyLeaveDialog(existingLeave: leave);
                     },
             ),
           ),
@@ -1185,31 +955,16 @@ class _LeaveRequestScreenState
   }) {
     return OutlinedButton.icon(
       onPressed: onPressed,
-      icon: Icon(
-        icon,
-        size: 16,
-      ),
+      icon: Icon(icon, size: 16),
       label: Text(
         label,
-        style: GoogleFonts.poppins(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-        ),
+        style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w700),
       ),
       style: OutlinedButton.styleFrom(
         foregroundColor: color,
-        side: BorderSide(
-          color: color.withValues(
-            alpha: 0.25,
-          ),
-        ),
-        padding: const EdgeInsets.symmetric(
-          vertical: 11,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius:
-              BorderRadius.circular(12),
-        ),
+        side: BorderSide(color: color.withValues(alpha: 0.25)),
+        padding: const EdgeInsets.symmetric(vertical: 11),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -1220,22 +975,14 @@ class _LeaveRequestScreenState
 
   Widget _buildFloatingActionButton() {
     return FloatingActionButton.extended(
-      onPressed:
-          _isSubmitting
-              ? null
-              : () => _showApplyLeaveDialog(),
+      onPressed: _isSubmitting ? null : () => _showApplyLeaveDialog(),
       backgroundColor: primaryColor,
       foregroundColor: Colors.white,
       elevation: 7,
-      icon: const Icon(
-        Icons.add_rounded,
-      ),
+      icon: const Icon(Icons.add_rounded),
       label: Text(
         'Apply Leave',
-        style: GoogleFonts.poppins(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-        ),
+        style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -1244,166 +991,104 @@ class _LeaveRequestScreenState
   // APPLY / EDIT DIALOG
   // ============================================================
 
-  Future<void> _showApplyLeaveDialog({
-    TeacherLeaveModel? existingLeave,
-  }) async {
+  Future<void> _showApplyLeaveDialog({TeacherLeaveModel? existingLeave}) async {
     final isEdit = existingLeave != null;
 
-    String selectedLeaveType =
-        _normaliseLeaveType(
-      existingLeave?.leaveType,
-    );
+    String selectedLeaveType = _normaliseLeaveType(existingLeave?.leaveType);
 
-    final leaveTypeController =
-        TextEditingController(
-      text: existingLeave != null &&
-              !_leaveTypes.contains(
-                existingLeave.leaveType,
-              )
+    final leaveTypeController = TextEditingController(
+      text:
+          existingLeave != null &&
+              !_leaveTypes.contains(existingLeave.leaveType)
           ? existingLeave.leaveType
           : '',
     );
 
-    final reasonController =
-        TextEditingController(
+    final reasonController = TextEditingController(
       text: existingLeave?.reason ?? '',
     );
 
-    DateTime startDate =
-        existingLeave?.startDate ??
-            DateTime.now();
+    DateTime startDate = existingLeave?.startDate ?? DateTime.now();
 
-    DateTime endDate =
-        existingLeave?.endDate ??
-            DateTime.now();
+    DateTime endDate = existingLeave?.endDate ?? DateTime.now();
 
-    final formKey =
-        GlobalKey<FormState>();
+    final formKey = GlobalKey<FormState>();
 
     await showDialog(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
         return StatefulBuilder(
-          builder: (
-            context,
-            setDialogState,
-          ) {
-            final isOther =
-                selectedLeaveType == 'Other';
+          builder: (context, setDialogState) {
+            final isOther = selectedLeaveType == 'Other';
 
             return Dialog(
               backgroundColor: Colors.transparent,
-              insetPadding:
-                  const EdgeInsets.symmetric(
+              insetPadding: const EdgeInsets.symmetric(
                 horizontal: 18,
                 vertical: 24,
               ),
               child: Container(
-                constraints:
-                    const BoxConstraints(
-                  maxWidth: 520,
-                ),
+                constraints: const BoxConstraints(maxWidth: 520),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius:
-                      BorderRadius.circular(26),
+                  borderRadius: BorderRadius.circular(26),
                 ),
                 child: SingleChildScrollView(
                   child: Form(
                     key: formKey,
                     child: Column(
-                      mainAxisSize:
-                          MainAxisSize.min,
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildDialogHeader(
-                          isEdit,
-                          dialogContext,
-                        ),
+                        _buildDialogHeader(isEdit, dialogContext),
 
                         Padding(
-                          padding:
-                              const EdgeInsets.fromLTRB(
-                            20,
-                            20,
-                            20,
-                            22,
-                          ),
+                          padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
                           child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 'Leave Details',
-                                style:
-                                    GoogleFonts.poppins(
+                                style: GoogleFonts.poppins(
                                   fontSize: 13,
-                                  fontWeight:
-                                      FontWeight.w700,
-                                  color:
-                                      const Color(
-                                    0xff1B2433,
-                                  ),
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xff1B2433),
                                 ),
                               ),
-                              const SizedBox(
-                                height: 12,
-                              ),
+                              const SizedBox(height: 12),
 
                               // LEAVE TYPE
-                              DropdownButtonFormField<
-                                  String>(
-                                value:
-                                    selectedLeaveType,
+                              DropdownButtonFormField<String>(
+                                value: selectedLeaveType,
                                 isExpanded: true,
-                                decoration:
-                                    _inputDecoration(
+                                decoration: _inputDecoration(
                                   'Leave Type',
-                                  Icons
-                                      .category_outlined,
+                                  Icons.category_outlined,
                                 ),
-                                items: _leaveTypes
-                                    .map(
-                                      (
-                                        type,
-                                      ) {
-                                        return DropdownMenuItem<
-                                            String>(
-                                          value: type,
-                                          child: Text(
-                                            type,
-                                            style:
-                                                GoogleFonts.poppins(
-                                              fontSize: 12,
-                                              fontWeight:
-                                                  FontWeight.w500,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    )
-                                    .toList(),
-                                onChanged:
-                                    (value) {
-                                  if (value ==
-                                      null) {
+                                items: _leaveTypes.map((type) {
+                                  return DropdownMenuItem<String>(
+                                    value: type,
+                                    child: Text(
+                                      type,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (value) {
+                                  if (value == null) {
                                     return;
                                   }
 
                                   setDialogState(() {
-                                    selectedLeaveType =
-                                        value;
+                                    selectedLeaveType = value;
                                   });
                                 },
-                                validator:
-                                    (value) {
-                                  if (value ==
-                                          null ||
-                                      value
-                                          .trim()
-                                          .isEmpty) {
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
                                     return 'Please select leave type';
                                   }
                                   return null;
@@ -1411,29 +1096,18 @@ class _LeaveRequestScreenState
                               ),
 
                               if (isOther) ...[
-                                const SizedBox(
-                                  height: 12,
-                                ),
+                                const SizedBox(height: 12),
                                 TextFormField(
-                                  controller:
-                                      leaveTypeController,
-                                  style:
-                                      GoogleFonts.poppins(
-                                    fontSize: 12,
-                                  ),
-                                  decoration:
-                                      _inputDecoration(
+                                  controller: leaveTypeController,
+                                  style: GoogleFonts.poppins(fontSize: 12),
+                                  decoration: _inputDecoration(
                                     'Enter leave type',
                                     Icons.edit_note_rounded,
                                   ),
-                                  validator:
-                                      (value) {
-                                    if (selectedLeaveType ==
-                                            'Other' &&
+                                  validator: (value) {
+                                    if (selectedLeaveType == 'Other' &&
                                         (value == null ||
-                                            value
-                                                .trim()
-                                                .isEmpty)) {
+                                            value.trim().isEmpty)) {
                                       return 'Enter leave type';
                                     }
                                     return null;
@@ -1441,153 +1115,92 @@ class _LeaveRequestScreenState
                                 ),
                               ],
 
-                              const SizedBox(
-                                height: 16,
-                              ),
+                              const SizedBox(height: 16),
 
                               Text(
                                 'Leave Period',
-                                style:
-                                    GoogleFonts.poppins(
+                                style: GoogleFonts.poppins(
                                   fontSize: 11,
-                                  fontWeight:
-                                      FontWeight.w700,
-                                  color:
-                                      Colors.grey.shade700,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.grey.shade700,
                                 ),
                               ),
 
-                              const SizedBox(
-                                height: 9,
-                              ),
+                              const SizedBox(height: 9),
 
                               // DATES
                               Row(
                                 children: [
                                   Expanded(
-                                    child:
-                                        _datePickerField(
+                                    child: _datePickerField(
                                       context,
-                                      title:
-                                          'Start Date',
-                                      date:
-                                          startDate,
-                                      onTap:
-                                          () async {
-                                        final today =
-                                            DateTime(
-                                          DateTime.now()
-                                              .year,
-                                          DateTime.now()
-                                              .month,
-                                          DateTime.now()
-                                              .day,
+                                      title: 'Start Date',
+                                      date: startDate,
+                                      onTap: () async {
+                                        final today = DateTime(
+                                          DateTime.now().year,
+                                          DateTime.now().month,
+                                          DateTime.now().day,
                                         );
 
-                                        DateTime initial =
-                                            startDate;
+                                        DateTime initial = startDate;
 
-                                        if (initial
-                                            .isBefore(
-                                          today,
-                                        )) {
-                                          initial =
-                                              today;
+                                        if (initial.isBefore(today)) {
+                                          initial = today;
                                         }
 
-                                        final selected =
-                                            await showDatePicker(
-                                          context:
-                                              context,
-                                          initialDate:
-                                              initial,
+                                        final selected = await showDatePicker(
+                                          context: context,
+                                          initialDate: initial,
                                           firstDate:
                                               isEdit &&
-                                                      existingLeave!
-                                                          .startDate
-                                                          .isBefore(
-                                                        today,
-                                                      )
-                                                  ? existingLeave
-                                                      .startDate
-                                                  : today,
-                                          lastDate:
-                                              today.add(
-                                            const Duration(
-                                              days: 365,
-                                            ),
+                                                  existingLeave!.startDate
+                                                      .isBefore(today)
+                                              ? existingLeave.startDate
+                                              : today,
+                                          lastDate: today.add(
+                                            const Duration(days: 365),
                                           ),
                                         );
 
-                                        if (selected !=
-                                            null) {
-                                          setDialogState(
-                                            () {
-                                              startDate =
-                                                  selected;
+                                        if (selected != null) {
+                                          setDialogState(() {
+                                            startDate = selected;
 
-                                              if (endDate
-                                                  .isBefore(
-                                                startDate,
-                                              )) {
-                                                endDate =
-                                                    startDate;
-                                              }
-                                            },
-                                          );
+                                            if (endDate.isBefore(startDate)) {
+                                              endDate = startDate;
+                                            }
+                                          });
                                         }
                                       },
                                     ),
                                   ),
-                                  const SizedBox(
-                                    width: 10,
-                                  ),
+                                  const SizedBox(width: 10),
                                   Expanded(
-                                    child:
-                                        _datePickerField(
+                                    child: _datePickerField(
                                       context,
-                                      title:
-                                          'End Date',
-                                      date:
-                                          endDate,
-                                      onTap:
-                                          () async {
-                                        DateTime initial =
-                                            endDate;
+                                      title: 'End Date',
+                                      date: endDate,
+                                      onTap: () async {
+                                        DateTime initial = endDate;
 
-                                        if (initial
-                                            .isBefore(
-                                          startDate,
-                                        )) {
-                                          initial =
-                                              startDate;
+                                        if (initial.isBefore(startDate)) {
+                                          initial = startDate;
                                         }
 
-                                        final selected =
-                                            await showDatePicker(
-                                          context:
-                                              context,
-                                          initialDate:
-                                              initial,
-                                          firstDate:
-                                              startDate,
-                                          lastDate:
-                                              DateTime.now()
-                                                  .add(
-                                            const Duration(
-                                              days: 365,
-                                            ),
+                                        final selected = await showDatePicker(
+                                          context: context,
+                                          initialDate: initial,
+                                          firstDate: startDate,
+                                          lastDate: DateTime.now().add(
+                                            const Duration(days: 365),
                                           ),
                                         );
 
-                                        if (selected !=
-                                            null) {
-                                          setDialogState(
-                                            () {
-                                              endDate =
-                                                  selected;
-                                            },
-                                          );
+                                        if (selected != null) {
+                                          setDialogState(() {
+                                            endDate = selected;
+                                          });
                                         }
                                       },
                                     ),
@@ -1595,241 +1208,154 @@ class _LeaveRequestScreenState
                                 ],
                               ),
 
-                              const SizedBox(
-                                height: 12,
-                              ),
+                              const SizedBox(height: 12),
 
                               // DURATION
                               Container(
-                                padding:
-                                    const EdgeInsets
-                                        .symmetric(
+                                padding: const EdgeInsets.symmetric(
                                   horizontal: 13,
                                   vertical: 10,
                                 ),
-                                decoration:
-                                    BoxDecoration(
-                                  color:
-                                      const Color(
-                                    0xffEEF6FF,
-                                  ),
-                                  borderRadius:
-                                      BorderRadius
-                                          .circular(
-                                    13,
-                                  ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xffEEF6FF),
+                                  borderRadius: BorderRadius.circular(13),
                                 ),
                                 child: Row(
                                   children: [
                                     const Icon(
-                                      Icons
-                                          .timelapse_rounded,
-                                      color:
-                                          primaryColor,
+                                      Icons.timelapse_rounded,
+                                      color: primaryColor,
                                       size: 19,
                                     ),
-                                    const SizedBox(
-                                      width: 9,
-                                    ),
+                                    const SizedBox(width: 9),
                                     Text(
                                       'Leave Duration',
-                                      style:
-                                          GoogleFonts.poppins(
+                                      style: GoogleFonts.poppins(
                                         fontSize: 10,
-                                        color: Colors
-                                            .grey
-                                            .shade600,
+                                        color: Colors.grey.shade600,
                                       ),
                                     ),
                                     const Spacer(),
                                     Text(
                                       '${_calculateDays(startDate, endDate)} ${_calculateDays(startDate, endDate) == 1 ? 'Day' : 'Days'}',
-                                      style:
-                                          GoogleFonts.poppins(
+                                      style: GoogleFonts.poppins(
                                         fontSize: 12,
-                                        fontWeight:
-                                            FontWeight
-                                                .w800,
-                                        color:
-                                            primaryColor,
+                                        fontWeight: FontWeight.w800,
+                                        color: primaryColor,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
 
-                              const SizedBox(
-                                height: 16,
-                              ),
+                              const SizedBox(height: 16),
 
                               TextFormField(
-                                controller:
-                                    reasonController,
+                                controller: reasonController,
                                 maxLines: 4,
-                                style:
-                                    GoogleFonts.poppins(
+                                style: GoogleFonts.poppins(
                                   fontSize: 12,
                                   height: 1.4,
                                 ),
-                                decoration:
-                                    _inputDecoration(
+                                decoration: _inputDecoration(
                                   'Reason (optional)',
-                                  Icons
-                                      .description_outlined,
-                                ).copyWith(
-                                  alignLabelWithHint:
-                                      true,
-                                ),
+                                  Icons.description_outlined,
+                                ).copyWith(alignLabelWithHint: true),
                               ),
 
-                              const SizedBox(
-                                height: 20,
-                              ),
+                              const SizedBox(height: 20),
 
                               Row(
                                 children: [
                                   Expanded(
-                                    child:
-                                        OutlinedButton(
+                                    child: OutlinedButton(
                                       onPressed: () {
-                                        Navigator.pop(
-                                          dialogContext,
-                                        );
+                                        Navigator.pop(dialogContext);
                                       },
-                                      style:
-                                          OutlinedButton
-                                              .styleFrom(
-                                        foregroundColor:
-                                            Colors.grey
-                                                .shade700,
-                                        side:
-                                            BorderSide(
-                                          color: Colors
-                                              .grey
-                                              .shade300,
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: Colors.grey.shade700,
+                                        side: BorderSide(
+                                          color: Colors.grey.shade300,
                                         ),
-                                        padding:
-                                            const EdgeInsets
-                                                .symmetric(
+                                        padding: const EdgeInsets.symmetric(
                                           vertical: 13,
                                         ),
-                                        shape:
-                                            RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius
-                                                  .circular(
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
                                             13,
                                           ),
                                         ),
                                       ),
                                       child: Text(
                                         'Cancel',
-                                        style:
-                                            GoogleFonts.poppins(
+                                        style: GoogleFonts.poppins(
                                           fontSize: 11,
-                                          fontWeight:
-                                              FontWeight
-                                                  .w600,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(
-                                    width: 10,
-                                  ),
+                                  const SizedBox(width: 10),
                                   Expanded(
                                     flex: 2,
-                                    child:
-                                        ElevatedButton.icon(
-                                      onPressed:
-                                          _isSubmitting
-                                              ? null
-                                              : () async {
-                                                  if (!formKey
-                                                      .currentState!
-                                                      .validate()) {
-                                                    return;
-                                                  }
+                                    child: ElevatedButton.icon(
+                                      onPressed: _isSubmitting
+                                          ? null
+                                          : () async {
+                                              if (!formKey.currentState!
+                                                  .validate()) {
+                                                return;
+                                              }
 
-                                                  if (endDate
-                                                      .isBefore(
-                                                    startDate,
-                                                  )) {
-                                                    _showMessage(
-                                                      'End date cannot be before start date.',
-                                                      Colors
-                                                          .red,
-                                                    );
-                                                    return;
-                                                  }
+                                              if (endDate.isBefore(startDate)) {
+                                                _showMessage(
+                                                  'End date cannot be before start date.',
+                                                  Colors.red,
+                                                );
+                                                return;
+                                              }
 
-                                                  final finalLeaveType =
-                                                      selectedLeaveType ==
-                                                              'Other'
-                                                          ? leaveTypeController
-                                                              .text
-                                                              .trim()
-                                                          : selectedLeaveType;
+                                              final finalLeaveType =
+                                                  selectedLeaveType == 'Other'
+                                                  ? leaveTypeController.text
+                                                        .trim()
+                                                  : selectedLeaveType;
 
-                                                  Navigator.pop(
-                                                    dialogContext,
-                                                  );
+                                              Navigator.pop(dialogContext);
 
-                                                  await _submitLeave(
-                                                    leaveType:
-                                                        finalLeaveType,
-                                                    startDate:
-                                                        startDate,
-                                                    endDate:
-                                                        endDate,
-                                                    reason:
-                                                        reasonController
-                                                            .text
-                                                            .trim(),
-                                                    existingLeave:
-                                                        existingLeave,
-                                                  );
-                                                },
-                                      icon:
-                                          Icon(
+                                              await _submitLeave(
+                                                leaveType: finalLeaveType,
+                                                startDate: startDate,
+                                                endDate: endDate,
+                                                reason: reasonController.text
+                                                    .trim(),
+                                                existingLeave: existingLeave,
+                                              );
+                                            },
+                                      icon: Icon(
                                         isEdit
-                                            ? Icons
-                                                .save_rounded
-                                            : Icons
-                                                .send_rounded,
+                                            ? Icons.save_rounded
+                                            : Icons.send_rounded,
                                         size: 17,
                                       ),
-                                      label:
-                                          Text(
+                                      label: Text(
                                         isEdit
                                             ? 'Save Changes'
                                             : 'Submit Request',
-                                        style:
-                                            GoogleFonts.poppins(
+                                        style: GoogleFonts.poppins(
                                           fontSize: 11,
-                                          fontWeight:
-                                              FontWeight
-                                                  .w700,
+                                          fontWeight: FontWeight.w700,
                                         ),
                                       ),
-                                      style:
-                                          ElevatedButton
-                                              .styleFrom(
-                                        backgroundColor:
-                                            primaryColor,
-                                        foregroundColor:
-                                            Colors.white,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: primaryColor,
+                                        foregroundColor: Colors.white,
                                         elevation: 0,
-                                        padding:
-                                            const EdgeInsets
-                                                .symmetric(
+                                        padding: const EdgeInsets.symmetric(
                                           vertical: 13,
                                         ),
-                                        shape:
-                                            RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius
-                                                  .circular(
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
                                             13,
                                           ),
                                         ),
@@ -1851,30 +1377,22 @@ class _LeaveRequestScreenState
         );
       },
     );
+    // Allow the dialog route to finish its closing transition
+    // before disposing its text controllers.
+    await Future<void>.delayed(const Duration(milliseconds: 400));
 
     leaveTypeController.dispose();
     reasonController.dispose();
   }
 
-  Widget _buildDialogHeader(
-    bool isEdit,
-    BuildContext dialogContext,
-  ) {
+  Widget _buildDialogHeader(bool isEdit, BuildContext dialogContext) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(
-        20,
-        18,
-        14,
-        18,
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 18, 14, 18),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            primaryDark,
-            primaryColor,
-          ],
+          colors: [primaryDark, primaryColor],
         ),
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(26),
@@ -1887,11 +1405,8 @@ class _LeaveRequestScreenState
             height: 44,
             width: 44,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(
-                alpha: 0.14,
-              ),
-              borderRadius:
-                  BorderRadius.circular(13),
+              color: Colors.white.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(13),
             ),
             child: Icon(
               isEdit
@@ -1904,13 +1419,10 @@ class _LeaveRequestScreenState
           const SizedBox(width: 12),
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isEdit
-                      ? 'Edit Leave Request'
-                      : 'Apply for Leave',
+                  isEdit ? 'Edit Leave Request' : 'Apply for Leave',
                   style: GoogleFonts.poppins(
                     color: Colors.white,
                     fontSize: 16,
@@ -1923,9 +1435,7 @@ class _LeaveRequestScreenState
                       ? 'Update your pending request'
                       : 'Submit a new leave request',
                   style: GoogleFonts.poppins(
-                    color: Colors.white.withValues(
-                      alpha: 0.72,
-                    ),
+                    color: Colors.white.withValues(alpha: 0.72),
                     fontSize: 9,
                   ),
                 ),
@@ -1936,10 +1446,7 @@ class _LeaveRequestScreenState
             onPressed: () {
               Navigator.pop(dialogContext);
             },
-            icon: const Icon(
-              Icons.close_rounded,
-              color: Colors.white,
-            ),
+            icon: const Icon(Icons.close_rounded, color: Colors.white),
           ),
         ],
       ),
@@ -1957,31 +1464,25 @@ class _LeaveRequestScreenState
     required String reason,
     TeacherLeaveModel? existingLeave,
   }) async {
+    if (!mounted || _isSubmitting) return;
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
     try {
-      if (!mounted) return;
-
-      setState(() {
-        _isSubmitting = true;
-      });
-
       final token = await AuthStorage.getToken();
-      final teacherId =
-          await AuthStorage.getTeacherId();
+      final teacherId = await AuthStorage.getTeacherId();
 
       if (token == null || token.isEmpty) {
-        throw Exception(
-          'Login session expired. Please login again.',
-        );
+        throw Exception('Login session expired. Please login again.');
       }
 
       if (teacherId == null) {
-        throw Exception(
-          'Teacher ID not found. Please login again.',
-        );
+        throw Exception('Teacher ID not found. Please login again.');
       }
 
-      final service =
-          TeacherLeaveService(token);
+      final service = TeacherLeaveService(token);
 
       if (existingLeave == null) {
         await service.applyLeave(
@@ -1989,8 +1490,7 @@ class _LeaveRequestScreenState
           leaveType: leaveType,
           startDate: startDate,
           endDate: endDate,
-          reason:
-              reason.isEmpty ? null : reason,
+          reason: reason.isEmpty ? null : reason,
         );
       } else {
         await service.updateLeave(
@@ -1999,8 +1499,7 @@ class _LeaveRequestScreenState
           leaveType: leaveType,
           startDate: startDate,
           endDate: endDate,
-          reason:
-              reason.isEmpty ? null : reason,
+          reason: reason.isEmpty ? null : reason,
         );
       }
 
@@ -2018,10 +1517,9 @@ class _LeaveRequestScreenState
       );
 
       await _loadLeaves();
-    } catch (e) {
-      debugPrint(
-        'SUBMIT LEAVE ERROR: $e',
-      );
+    } catch (e, stackTrace) {
+      debugPrint('SUBMIT LEAVE ERROR: $e');
+      debugPrint('SUBMIT STACK TRACE: $stackTrace');
 
       if (!mounted) return;
 
@@ -2029,29 +1527,21 @@ class _LeaveRequestScreenState
         _isSubmitting = false;
       });
 
-      _showMessage(
-        _friendlyError(e),
-        Colors.red,
-      );
+      _showMessage(_friendlyError(e), Colors.red);
     }
   }
-
   // ============================================================
   // DELETE
   // ============================================================
 
-  Future<void> _confirmDelete(
-    TeacherLeaveModel leave,
-  ) async {
-    final confirmed =
-        await showDialog<bool>(
+  Future<void> _confirmDelete(TeacherLeaveModel leave) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return Dialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(22),
           ),
           child: Padding(
             padding: const EdgeInsets.all(20),
@@ -2062,9 +1552,7 @@ class _LeaveRequestScreenState
                   height: 58,
                   width: 58,
                   decoration: BoxDecoration(
-                    color: Colors.red.withValues(
-                      alpha: 0.10,
-                    ),
+                    color: Colors.red.withValues(alpha: 0.10),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -2098,67 +1586,35 @@ class _LeaveRequestScreenState
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () {
-                          Navigator.pop(
-                            dialogContext,
-                            false,
-                          );
+                          Navigator.pop(dialogContext, false);
                         },
-                        style:
-                            OutlinedButton.styleFrom(
-                          foregroundColor:
-                              Colors.grey.shade700,
-                          side: BorderSide(
-                            color:
-                                Colors.grey.shade300,
-                          ),
-                          padding:
-                              const EdgeInsets
-                                  .symmetric(
-                            vertical: 12,
-                          ),
-                          shape:
-                              RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(
-                              12,
-                            ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.grey.shade700,
+                          side: BorderSide(color: Colors.grey.shade300),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child:
-                            const Text('Cancel'),
+                        child: const Text('Cancel'),
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
-                          Navigator.pop(
-                            dialogContext,
-                            true,
-                          );
+                          Navigator.pop(dialogContext, true);
                         },
-                        style:
-                            ElevatedButton.styleFrom(
-                          backgroundColor:
-                              Colors.red.shade600,
-                          foregroundColor:
-                              Colors.white,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade600,
+                          foregroundColor: Colors.white,
                           elevation: 0,
-                          padding:
-                              const EdgeInsets
-                                  .symmetric(
-                            vertical: 12,
-                          ),
-                          shape:
-                              RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(
-                              12,
-                            ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child:
-                            const Text('Delete'),
+                        child: const Text('Delete'),
                       ),
                     ),
                   ],
@@ -2182,13 +1638,10 @@ class _LeaveRequestScreenState
       final token = await AuthStorage.getToken();
 
       if (token == null || token.isEmpty) {
-        throw Exception(
-          'Login session expired. Please login again.',
-        );
+        throw Exception('Login session expired. Please login again.');
       }
 
-      final service =
-          TeacherLeaveService(token);
+      final service = TeacherLeaveService(token);
 
       await service.deleteLeave(leave.id);
 
@@ -2198,16 +1651,11 @@ class _LeaveRequestScreenState
         _isSubmitting = false;
       });
 
-      _showMessage(
-        'Leave request deleted successfully.',
-        Colors.green,
-      );
+      _showMessage('Leave request deleted successfully.', Colors.green);
 
       await _loadLeaves();
     } catch (e) {
-      debugPrint(
-        'DELETE LEAVE ERROR: $e',
-      );
+      debugPrint('DELETE LEAVE ERROR: $e');
 
       if (!mounted) return;
 
@@ -2215,10 +1663,7 @@ class _LeaveRequestScreenState
         _isSubmitting = false;
       });
 
-      _showMessage(
-        _friendlyError(e),
-        Colors.red,
-      );
+      _showMessage(_friendlyError(e), Colors.red);
     }
   }
 
@@ -2236,17 +1681,11 @@ class _LeaveRequestScreenState
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
       child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 12,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           color: const Color(0xffF6F8FB),
-          borderRadius:
-              BorderRadius.circular(14),
-          border: Border.all(
-            color: Colors.grey.shade100,
-          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.grey.shade100),
         ),
         child: Row(
           children: [
@@ -2254,11 +1693,8 @@ class _LeaveRequestScreenState
               height: 34,
               width: 34,
               decoration: BoxDecoration(
-                color: primaryColor.withValues(
-                  alpha: 0.09,
-                ),
-                borderRadius:
-                    BorderRadius.circular(10),
+                color: primaryColor.withValues(alpha: 0.09),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
                 Icons.calendar_month_rounded,
@@ -2269,30 +1705,25 @@ class _LeaveRequestScreenState
             const SizedBox(width: 8),
             Expanded(
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
                     style: GoogleFonts.poppins(
                       fontSize: 8,
                       color: Colors.grey.shade500,
-                      fontWeight:
-                          FontWeight.w600,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     _formatDate(date),
                     maxLines: 1,
-                    overflow:
-                        TextOverflow.ellipsis,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.poppins(
                       fontSize: 10.5,
-                      fontWeight:
-                          FontWeight.w700,
-                      color:
-                          const Color(0xff252D3A),
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xff252D3A),
                     ),
                   ),
                 ],
@@ -2308,32 +1739,24 @@ class _LeaveRequestScreenState
   // EMPTY
   // ============================================================
 
-  Widget _buildEmptyState(
-    String status,
-  ) {
+  Widget _buildEmptyState(String status) {
     final color = _statusColor(status);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 35,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 35),
       child: Column(
         children: [
           Container(
             height: 90,
             width: 90,
             decoration: BoxDecoration(
-              color: color.withValues(
-                alpha: 0.08,
-              ),
+              color: color.withValues(alpha: 0.08),
               shape: BoxShape.circle,
             ),
             child: Icon(
               _emptyIcon(status),
               size: 42,
-              color: color.withValues(
-                alpha: 0.65,
-              ),
+              color: color.withValues(alpha: 0.65),
             ),
           ),
           const SizedBox(height: 18),
@@ -2363,9 +1786,7 @@ class _LeaveRequestScreenState
     );
   }
 
-  String _emptyDescription(
-    String status,
-  ) {
+  String _emptyDescription(String status) {
     if (_searchText.isNotEmpty) {
       return 'Try searching with a different leave type or reason.';
     }
@@ -2388,54 +1809,31 @@ class _LeaveRequestScreenState
 
   Widget _buildLoadingState() {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        18,
-        18,
-        18,
-        100,
-      ),
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 100),
       children: [
-        _skeleton(
-          height: 48,
-          radius: 17,
-        ),
+        _skeleton(height: 48, radius: 17),
         const SizedBox(height: 14),
-        _skeleton(
-          height: 250,
-          radius: 22,
-        ),
+        _skeleton(height: 250, radius: 22),
         const SizedBox(height: 14),
-        _skeleton(
-          height: 230,
-          radius: 22,
-        ),
+        _skeleton(height: 230, radius: 22),
         const SizedBox(height: 14),
-        _skeleton(
-          height: 230,
-          radius: 22,
-        ),
+        _skeleton(height: 230, radius: 22),
       ],
     );
   }
 
-  Widget _skeleton({
-    required double height,
-    required double radius,
-  }) {
+  Widget _skeleton({required double height, required double radius}) {
     return Container(
       height: height,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius:
-            BorderRadius.circular(radius),
+        borderRadius: BorderRadius.circular(radius),
       ),
       child: const Center(
         child: SizedBox(
           height: 22,
           width: 22,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-          ),
+          child: CircularProgressIndicator(strokeWidth: 2),
         ),
       ),
     );
@@ -2450,24 +1848,18 @@ class _LeaveRequestScreenState
       color: primaryColor,
       onRefresh: _loadLeaves,
       child: ListView(
-        physics:
-            const AlwaysScrollableScrollPhysics(),
+        physics: const AlwaysScrollableScrollPhysics(),
         children: [
           const SizedBox(height: 100),
           Container(
-            margin: const EdgeInsets.symmetric(
-              horizontal: 40,
-            ),
+            margin: const EdgeInsets.symmetric(horizontal: 40),
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius:
-                  BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(
-                    alpha: 0.04,
-                  ),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -2479,9 +1871,7 @@ class _LeaveRequestScreenState
                   height: 70,
                   width: 70,
                   decoration: BoxDecoration(
-                    color: Colors.red.withValues(
-                      alpha: 0.08,
-                    ),
+                    color: Colors.red.withValues(alpha: 0.08),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -2501,8 +1891,7 @@ class _LeaveRequestScreenState
                 ),
                 const SizedBox(height: 7),
                 Text(
-                  _errorMessage ??
-                      'Something went wrong.',
+                  _errorMessage ?? 'Something went wrong.',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.poppins(
                     fontSize: 10.5,
@@ -2515,28 +1904,15 @@ class _LeaveRequestScreenState
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: _loadLeaves,
-                    icon: const Icon(
-                      Icons.refresh_rounded,
-                      size: 17,
-                    ),
+                    icon: const Icon(Icons.refresh_rounded, size: 17),
                     label: const Text('Try Again'),
-                    style:
-                        ElevatedButton.styleFrom(
-                      backgroundColor:
-                          primaryColor,
-                      foregroundColor:
-                          Colors.white,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
                       elevation: 0,
-                      padding:
-                          const EdgeInsets.symmetric(
-                        vertical: 13,
-                      ),
-                      shape:
-                          RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(
-                          13,
-                        ),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(13),
                       ),
                     ),
                   ),
@@ -2553,87 +1929,57 @@ class _LeaveRequestScreenState
   // HELPERS
   // ============================================================
 
-  InputDecoration _inputDecoration(
-    String hint,
-    IconData icon,
-  ) {
+  InputDecoration _inputDecoration(String hint, IconData icon) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: GoogleFonts.poppins(
-        fontSize: 11,
-        color: Colors.grey.shade500,
-      ),
-      prefixIcon: Icon(
-        icon,
-        color: primaryColor,
-        size: 20,
-      ),
+      hintStyle: GoogleFonts.poppins(fontSize: 11, color: Colors.grey.shade500),
+      prefixIcon: Icon(icon, color: primaryColor, size: 20),
       filled: true,
       fillColor: const Color(0xffF6F8FB),
-      contentPadding:
-          const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 14,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       border: OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(14),
-        borderSide: BorderSide(
-          color: Colors.grey.shade100,
-        ),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: Colors.grey.shade100),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(14),
-        borderSide: const BorderSide(
-          color: primaryColor,
-          width: 1.2,
-        ),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: primaryColor, width: 1.2),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(14),
-        borderSide: BorderSide(
-          color: Colors.red.shade300,
-        ),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: Colors.red.shade300),
       ),
-      focusedErrorBorder:
-          OutlineInputBorder(
-        borderRadius:
-            BorderRadius.circular(14),
-        borderSide: BorderSide(
-          color: Colors.red.shade400,
-          width: 1.2,
-        ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: Colors.red.shade400, width: 1.2),
       ),
     );
   }
 
-  Color _statusColor(
-    String status,
-  ) {
-    switch (status) {
+  Color _statusColor(String status) {
+    switch (status.trim().toUpperCase()) {
       case 'APPROVED':
         return Colors.green.shade600;
+
       case 'REJECTED':
         return Colors.red.shade600;
+
+      case 'APPLIED':
+      case 'SUBMITTED':
+      case 'PENDING':
       default:
         return Colors.orange.shade700;
     }
   }
 
-  IconData _leaveTypeIcon(
-    String type,
-  ) {
+  IconData _leaveTypeIcon(String type) {
     final value = type.toLowerCase();
 
-    if (value.contains('sick') ||
-        value.contains('medical')) {
+    if (value.contains('sick') || value.contains('medical')) {
       return Icons.medical_services_rounded;
     }
 
@@ -2656,9 +2002,7 @@ class _LeaveRequestScreenState
     return Icons.event_note_rounded;
   }
 
-  IconData _emptyIcon(
-    String status,
-  ) {
+  IconData _emptyIcon(String status) {
     switch (status) {
       case 'PENDING':
         return Icons.hourglass_empty_rounded;
@@ -2671,20 +2015,19 @@ class _LeaveRequestScreenState
     }
   }
 
-  String _prettyStatus(
-    String status,
-  ) {
-    if (status.isEmpty) {
-      return 'Pending';
+  String _prettyStatus(String status) {
+    final value = status.trim().toUpperCase();
+
+    if (value == 'APPLIED' || value == 'SUBMITTED' || value == 'PENDING') {
+      return 'Applied';
     }
 
-    return status[0] +
-        status.substring(1).toLowerCase();
+    return value.isEmpty
+        ? 'Applied'
+        : value[0] + value.substring(1).toLowerCase();
   }
 
-  String _formatDate(
-    DateTime date,
-  ) {
+  String _formatDate(DateTime date) {
     const months = [
       'Jan',
       'Feb',
@@ -2703,27 +2046,21 @@ class _LeaveRequestScreenState
     return '${date.day} ${months[date.month - 1]} ${date.year}';
   }
 
-  String _formatDateRange(
-    DateTime start,
-    DateTime end,
-  ) {
+  String _formatDateRange(DateTime start, DateTime end) {
     if (start.year == end.year &&
         start.month == end.month &&
         start.day == end.day) {
       return _formatDate(start);
     }
 
-    if (start.year == end.year &&
-        start.month == end.month) {
+    if (start.year == end.year && start.month == end.month) {
       return '${start.day} → ${end.day} ${_monthName(end.month)} ${end.year}';
     }
 
     return '${_formatDate(start)}  →  ${_formatDate(end)}';
   }
 
-  String _monthName(
-    int month,
-  ) {
+  String _monthName(int month) {
     const months = [
       'Jan',
       'Feb',
@@ -2742,9 +2079,7 @@ class _LeaveRequestScreenState
     return months[month - 1];
   }
 
-  String _formatDateTime(
-    DateTime? dateTime,
-  ) {
+  String _formatDateTime(DateTime? dateTime) {
     if (dateTime == null) {
       return 'Date unavailable';
     }
@@ -2752,50 +2087,28 @@ class _LeaveRequestScreenState
     final hour = dateTime.hour == 0
         ? 12
         : dateTime.hour > 12
-            ? dateTime.hour - 12
-            : dateTime.hour;
+        ? dateTime.hour - 12
+        : dateTime.hour;
 
-    final minute =
-        dateTime.minute.toString().padLeft(
-              2,
-              '0',
-            );
+    final minute = dateTime.minute.toString().padLeft(2, '0');
 
-    final period =
-        dateTime.hour >= 12 ? 'PM' : 'AM';
+    final period = dateTime.hour >= 12 ? 'PM' : 'AM';
 
     return '${_formatDate(dateTime)}, $hour:$minute $period';
   }
 
-  int _calculateDays(
-    DateTime start,
-    DateTime end,
-  ) {
-    final startOnly = DateTime(
-      start.year,
-      start.month,
-      start.day,
-    );
+  int _calculateDays(DateTime start, DateTime end) {
+    final startOnly = DateTime(start.year, start.month, start.day);
 
-    final endOnly = DateTime(
-      end.year,
-      end.month,
-      end.day,
-    );
+    final endOnly = DateTime(end.year, end.month, end.day);
 
-    final difference =
-        endOnly.difference(startOnly).inDays;
+    final difference = endOnly.difference(startOnly).inDays;
 
-    return difference < 0
-        ? 0
-        : difference + 1;
+    return difference < 0 ? 0 : difference + 1;
   }
 
-  String _normaliseLeaveType(
-    String? value,
-  ) {
-    if (value == null ||
-        value.trim().isEmpty) {
+  String _normaliseLeaveType(String? value) {
+    if (value == null || value.trim().isEmpty) {
       return 'Casual Leave';
     }
 
@@ -2806,42 +2119,29 @@ class _LeaveRequestScreenState
     return 'Other';
   }
 
-  String _friendlyError(
-    dynamic error,
-  ) {
+  String _friendlyError(dynamic error) {
     if (error is Exception) {
-      final message =
-          error.toString();
+      final message = error.toString();
 
-      if (message.contains(
-        'already has leave',
-      )) {
+      if (message.contains('already has leave')) {
         return 'You already have leave during this period.';
       }
 
-      if (message.contains(
-        'pending leave',
-      )) {
+      if (message.contains('pending leave')) {
         return 'Only pending leave requests can be modified.';
       }
 
-      if (message.contains(
-        '401',
-      )) {
+      if (message.contains('401')) {
         return 'Your login session has expired. Please login again.';
       }
 
-      return message
-          .replaceFirst('Exception: ', '');
+      return message.replaceFirst('Exception: ', '');
     }
 
     return error.toString();
   }
 
-  void _showMessage(
-    String message,
-    Color color,
-  ) {
+  void _showMessage(String message, Color color) {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context)
@@ -2870,12 +2170,10 @@ class _LeaveRequestScreenState
             ],
           ),
           backgroundColor: color,
-          behavior:
-              SnackBarBehavior.floating,
+          behavior: SnackBarBehavior.floating,
           margin: const EdgeInsets.all(14),
           shape: RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(14),
           ),
         ),
       );

@@ -401,7 +401,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Smart School',
+            'My School',
             style: TextStyle(
               color: textDark,
               fontSize: 18,
@@ -1062,266 +1062,85 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
   // ============================================================
   // PENDING FEE CARD
   // ============================================================
-
   Widget _buildFeeReminder() {
-    final student = selectedStudent;
-
-    if (student == null) return const SizedBox.shrink();
-
-    if (isLoadingFees) {
-      return Container(
-        padding: const EdgeInsets.all(18),
-        decoration: _cardDecoration(),
-        child: const Row(
-          children: [
-            SizedBox(
-              width: 21,
-              height: 21,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.3,
-                color: primary,
-              ),
-            ),
-            SizedBox(width: 13),
-            Expanded(
-              child: Text(
-                'Loading fee details...',
-                style: TextStyle(color: textMuted, fontWeight: FontWeight.w500),
-              ),
-            ),
-          ],
-        ),
-      );
+    if (selectedStudent == null) {
+      return const SizedBox.shrink();
     }
 
-    if (pendingFees.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(17),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(21),
-          border: Border.all(color: const Color(0xFFD7F0E2)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.025),
-              blurRadius: 14,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8F7EF),
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: const constIconPlaceholder(),
-            ),
-            const SizedBox(width: 13),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'All Caught Up!',
-                    style: TextStyle(
-                      color: textDark,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'No pending fees for your child.',
-                    style: TextStyle(color: textMuted, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(
-              Icons.check_circle_rounded,
-              color: Color(0xFF209764),
-              size: 23,
-            ),
-          ],
-        ),
-      );
+    // Calculate pending amount from fee records.
+    double pendingAmount = 0;
+
+    for (final fee in pendingFees) {
+      pendingAmount += fee.pendingAmount ?? 0;
     }
 
-    final totalPending = pendingFees.fold<double>(
-      0,
-      (sum, fee) => sum + fee.pendingAmount,
-    );
-
-    final dueDates =
-        pendingFees
-            .where((fee) => fee.dueDate != null)
-            .map((fee) => fee.dueDate!)
-            .toList()
-          ..sort();
-
-    final nearestDueDate = dueDates.isNotEmpty ? dueDates.first : null;
-
-    final dueDateText = nearestDueDate != null
-        ? 'Due on ${_formatDate(nearestDueDate)}'
-        : 'Due date not available';
+    final bool hasPendingFee = pendingAmount > 0;
 
     return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFFFE3D6)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFEF6C35).withOpacity(0.06),
-            blurRadius: 20,
-            offset: const Offset(0, 7),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.grey.shade200),
       ),
-      clipBehavior: Clip.antiAlias,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            height: 4,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFFFFB36B), Color(0xFFEF6C35)],
+          Row(
+            children: [
+              Icon(
+                hasPendingFee
+                    ? Icons.pending_actions_rounded
+                    : Icons.check_circle_rounded,
+                color: hasPendingFee ? Colors.orange : Colors.green,
+                size: 26,
               ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  hasPendingFee ? 'Fee Pending' : 'All Fees Paid',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            hasPendingFee
+                ? 'Pending Amount: ₹${pendingAmount.toStringAsFixed(2)}'
+                : 'No pending fees for this student.',
+            style: TextStyle(
+              color: hasPendingFee
+                  ? Colors.orange.shade800
+                  : Colors.green.shade700,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(17),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final isNarrow = constraints.maxWidth < 340;
-
-                final icon = Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF0E7),
-                    borderRadius: BorderRadius.circular(16),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => FeeDetailsScreen(student: selectedStudent!),
                   ),
-                  child: const Icon(
-                    Icons.account_balance_wallet_rounded,
-                    color: Color(0xFFE76B32),
-                    size: 24,
-                  ),
-                );
-
-                final feeDetails = Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Pending Fee',
-                        style: TextStyle(
-                          color: textDark,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          _formatCurrency(totalPending),
-                          style: const TextStyle(
-                            color: Color(0xFFDE5D28),
-                            fontSize: 23,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.calendar_month_rounded,
-                            size: 14,
-                            color: textMuted,
-                          ),
-                          const SizedBox(width: 5),
-                          Flexible(
-                            child: Text(
-                              dueDateText,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: textMuted,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-
-                final payButton = SizedBox(
-                  height: 45,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _openPage(
-                      FeeDetailsScreen(student: student),
-                      'Fee Details',
-                    ),
-                    icon: const Icon(Icons.arrow_forward_rounded, size: 17),
-                    label: const Text('View Fees'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFDE5D28),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(13),
-                      ),
-                      textStyle: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                );
-
-                if (isNarrow) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [icon, const SizedBox(width: 12), feeDetails],
-                      ),
-                      const SizedBox(height: 15),
-                      SizedBox(width: double.infinity, child: payButton),
-                    ],
-                  );
-                }
-
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    icon,
-                    const SizedBox(width: 13),
-                    feeDetails,
-                    const SizedBox(width: 10),
-                    payButton,
-                  ],
                 );
               },
+              icon: const Icon(Icons.receipt_long_rounded),
+              label: const Text('View Payment Details'),
             ),
           ),
         ],
       ),
     );
-  }
-
-  // ============================================================
+  } // ============================================================
   // BIRTHDAY SECTION
   // ============================================================
 
@@ -1510,16 +1329,19 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
             background: const Color(0xFFE5F5FC),
             page: ResultsScreen(student: student),
           ),
+          // _QuickAccessItem(
+          //   title: 'Performance',
+          //   subtitle: 'Test performance',
+          //   icon: Icons.bar_chart_rounded,
+          //   color: const Color(0xFF3155D9),
+          //   background: const Color(0xFFEFF2FF),
+          //   page: PerformanceScreen(student: student),
+          // ),
           _QuickAccessItem(
-            title: 'Performance',
-            subtitle: 'Test performance',
-            icon: Icons.bar_chart_rounded,
-            color: const Color(0xFF3155D9),
-            background: const Color(0xFFEFF2FF),
-            page: PerformanceScreen(student: student),
-          ),
-          _QuickAccessItem(
-            title: 'Complaints\n''&\n''Suggestions',
+            title:
+                'Complaints\n'
+                '&\n'
+                'Suggestions',
             subtitle: 'Share your feedback',
             icon: Icons.feedback_outlined,
             color: const Color(0xFF7B61A8),

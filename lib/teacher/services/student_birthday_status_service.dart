@@ -8,7 +8,7 @@ class StudentBirthdayStatusService {
   StudentBirthdayStatusService(String token)
       : _dio = Dio(
           BaseOptions(
-            baseUrl: 'http://10.51.189.80:8081',
+            baseUrl: 'http://10.145.230.80:8081',
             connectTimeout: const Duration(seconds: 15),
             receiveTimeout: const Duration(seconds: 15),
             sendTimeout: const Duration(seconds: 15),

@@ -72,68 +72,6 @@ class _TeacherDashboardScreenState extends State<TeacherDashboardScreen> {
     );
   }
 
-  // Widget _teacherCard() {
-  //   return Container(
-  //     padding: const EdgeInsets.all(20),
-
-  //     decoration: BoxDecoration(
-  //       gradient: const LinearGradient(
-  //         colors: [Color(0xff1565C0), Color(0xff42A5F5)],
-  //       ),
-
-  //       borderRadius: BorderRadius.circular(25),
-  //     ),
-
-  //     child: Row(
-  //       children: [
-  //         const CircleAvatar(
-  //           radius: 35,
-
-  //           backgroundColor: Colors.white,
-
-  //           child: Icon(Icons.person, size: 40, color: Color(0xff1565C0)),
-  //         ),
-
-  //         const SizedBox(width: 15),
-
-  //         Expanded(
-  //           child: Column(
-  //             crossAxisAlignment: CrossAxisAlignment.start,
-
-  //             children: [
-  //               Text(
-  //                 "Good Morning 👋",
-
-  //                 style: GoogleFonts.poppins(
-  //                   color: Colors.white70,
-  //                   fontSize: 14,
-  //                 ),
-  //               ),
-
-  //               Text(
-  //                 "Mrs. Anitha Sharma",
-
-  //                 style: GoogleFonts.poppins(
-  //                   fontSize: 22,
-
-  //                   fontWeight: FontWeight.bold,
-
-  //                   color: Colors.white,
-  //                 ),
-  //               ),
-
-  //               Text(
-  //                 "Mathematics Teacher",
-
-  //                 style: GoogleFonts.poppins(color: Colors.white70),
-  //               ),
-  //             ],
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
 
   Future<void> _loadTodaySchedule() async {
     try {
