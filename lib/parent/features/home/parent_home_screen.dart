@@ -134,7 +134,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
           await _loadPendingFees();
         }
 
-        await _loadBirthdayStatus();
+        //await _loadBirthdayStatus();
       } else {
         setState(() {
           isLoadingStudent = false;
@@ -1526,14 +1526,14 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
             background: const Color(0xFFF1EBFA),
             page: ParentFeedbackScreen(student: student),
           ),
-          _QuickAccessItem(
-            title: 'MCQ Tests',
-            subtitle: 'Practice tests',
-            icon: Icons.quiz_rounded,
-            color: const Color(0xFFCF4D88),
-            background: const Color(0xFFFFEAF3),
-            page: McqTestsScreen(student: student),
-          ),
+          // _QuickAccessItem(
+          //   title: 'MCQ Tests',
+          //   subtitle: 'Practice tests',
+          //   icon: Icons.quiz_rounded,
+          //   color: const Color(0xFFCF4D88),
+          //   background: const Color(0xFFFFEAF3),
+          //   page: McqTestsScreen(student: student),
+          // ),
           _QuickAccessItem(
             title: 'Exam Schedule',
             subtitle: 'Exam dates & timings',

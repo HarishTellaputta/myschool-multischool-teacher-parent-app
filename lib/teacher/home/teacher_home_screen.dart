@@ -50,7 +50,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     super.initState();
     _loadTeacherName();
     _loadTodayClasses();
-    _loadTodayBirthdays();
+    //_loadTodayBirthdays();
   }
 
   // ============================================================

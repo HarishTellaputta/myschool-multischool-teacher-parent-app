@@ -1,19 +1,24 @@
+
 import 'package:http/http.dart' as http;
 
 import 'api_service.dart';
 
 class AuthService {
+  AuthService._();
+
   // ============================================================
   // LOGIN
   // ============================================================
 
   static Future<http.Response> login({
+    required String schoolCode,
     required String username,
     required String password,
   }) async {
-    return await ApiService.post(
+    return ApiService.post(
       '/auth/login',
       body: {
+        'schoolCode': schoolCode,
         'username': username,
         'password': password,
       },
@@ -27,7 +32,7 @@ class AuthService {
   static Future<http.Response> forgotPassword({
     required String email,
   }) async {
-    return await ApiService.post(
+    return ApiService.post(
       '/auth/forgot-password',
       body: {
         'email': email,
@@ -44,7 +49,7 @@ class AuthService {
     required String newPassword,
     required String confirmPassword,
   }) async {
-    return await ApiService.post(
+    return ApiService.post(
       '/auth/reset-password',
       body: {
         'token': token,
@@ -63,7 +68,7 @@ class AuthService {
     required String newPassword,
     required String confirmPassword,
   }) async {
-    return await ApiService.post(
+    return ApiService.post(
       '/auth/change-password',
       requiresAuth: true,
       body: {
@@ -79,7 +84,7 @@ class AuthService {
   // ============================================================
 
   static Future<http.Response> logout() async {
-    return await ApiService.post(
+    return ApiService.post(
       '/auth/logout',
       requiresAuth: true,
     );

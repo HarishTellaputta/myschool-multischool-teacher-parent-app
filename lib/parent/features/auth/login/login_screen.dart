@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:myschool_app/parent/features/home/parent_home_screen.dart';
-import 'package:myschool_app/parent/services/api_service.dart';
-import 'package:myschool_app/parent/storage/local_storage.dart';
+import 'package:myschool_app/auth/common_auth_storage.dart';
 import 'package:myschool_app/parent/features/auth/login/forgot_password_screen.dart';
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
+import 'package:myschool_app/parent/features/home/parent_home_screen.dart';
+import 'package:myschool_app/parent/services/auth_service.dart';
+import 'package:myschool_app/parent/services/api_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,12 +17,9 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final TextEditingController schoolCodeController =
-      TextEditingController();
-  final TextEditingController usernameController =
-      TextEditingController();
-  final TextEditingController passwordController =
-      TextEditingController();
+  final TextEditingController schoolCodeController = TextEditingController();
+  final TextEditingController usernameController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
 
   bool _obscurePassword = true;
   bool _isLoading = false;
@@ -42,8 +37,9 @@ class _LoginScreenState extends State<LoginScreen> {
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor:
-              isError ? Colors.red.shade700 : Colors.green.shade700,
+          backgroundColor: isError
+              ? Colors.red.shade700
+              : Colors.green.shade700,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -52,104 +48,122 @@ class _LoginScreenState extends State<LoginScreen> {
       );
   }
 
- 
-Future<void> login() async {
-  if (_isLoading) return;
+  // ============================================================
+  // LOGIN
+  // ============================================================
 
-  FocusScope.of(context).unfocus();
+  Future<void> login() async {
+    if (_isLoading) return;
 
-  if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
 
-  final schoolCode = schoolCodeController.text.trim();
-  final username = usernameController.text.trim();
-  final password = passwordController.text;
+    if (!_formKey.currentState!.validate()) return;
 
-  setState(() => _isLoading = true);
+    final schoolCode = schoolCodeController.text.trim();
+    final username = usernameController.text.trim();
+    final password = passwordController.text;
 
-  try {
-    final response = await ApiService.post(
-      '/auth/login',
-      body: {
-        'schoolCode': schoolCode,
-        'username': username,
-        'password': password,
-      },
-    );
+    setState(() => _isLoading = true);
 
-    if (!mounted) return;
+    try {
+      // Use the common AuthService.
+      final response = await AuthService.login(
+        schoolCode: schoolCode,
+        username: username,
+        password: password,
+      );
 
-    final dynamic decoded = ApiService.decodeResponse(response);
+      if (!mounted) return;
 
-    if (response.statusCode < 200 ||
-        response.statusCode >= 300) {
-      String message = 'Login failed. Check your credentials.';
+      final dynamic decoded = ApiService.decodeResponse(response);
 
-      if (decoded is Map) {
-        message = decoded['message']?.toString() ??
-            decoded['error']?.toString() ??
-            message;
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        String message = 'Login failed. Check your credentials.';
+
+        if (decoded is Map) {
+          message =
+              decoded['message']?.toString() ??
+              decoded['error']?.toString() ??
+              message;
+        }
+
+        _showMessage(message, isError: true);
+        return;
       }
 
-      _showMessage(message, isError: true);
-      return;
-    }
+      if (decoded is! Map) {
+        _showMessage('Invalid response from server.', isError: true);
+        return;
+      }
 
-    if (decoded is! Map) {
+      final data = Map<String, dynamic>.from(decoded);
+
+      final token = data['token']?.toString();
+      final role = data['role']?.toString().toUpperCase();
+
+      final roles =
+          (data['roles'] as List?)
+              ?.map((item) => item.toString().toUpperCase())
+              .toList() ??
+          <String>[];
+
+      if (token == null || token.isEmpty) {
+        _showMessage('Login token not received.', isError: true);
+        return;
+      }
+
+      // Only allow parent accounts on the parent login screen.
+      if (role != 'PARENT' && !roles.contains('PARENT')) {
+        _showMessage('This login is for parent accounts only.', isError: true);
+        return;
+      }
+
+      final int? userId = data['userId'] is int
+          ? data['userId'] as int
+          : int.tryParse(data['userId']?.toString() ?? '');
+
+      if (userId == null) {
+        _showMessage('Invalid user ID received from server.', isError: true);
+        return;
+      }
+      final savedUsername = data['username']?.toString() ?? username;
+
+      final savedRole = role == 'PARENT' ? role! : 'PARENT';
+
+      // Save the JWT and session before opening the home screen.
+      await CommonAuthStorage.saveLoginData(
+        token: token,
+        userId: userId,
+        username: savedUsername,
+        role: savedRole,
+      );
+
+      if (!mounted) return;
+
+      _showMessage('Login successful');
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const ParentHomeScreen()),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      // Avoid displaying sensitive server or token details.
       _showMessage(
-        'Invalid response from server.',
+        'Unable to login. Please check your connection and try again.',
         isError: true,
       );
-      return;
-    }
-
-    final data = Map<String, dynamic>.from(decoded);
-
-    final token = data['token']?.toString();
-    final role = data['role']?.toString().toUpperCase();
-
-    final roles = (data['roles'] as List?)
-            ?.map((item) => item.toString().toUpperCase())
-            .toList() ??
-        <String>[];
-
-    if (token == null || token.isEmpty) {
-      _showMessage('Login token not received.', isError: true);
-      return;
-    }
-
-    if (role != 'PARENT' && !roles.contains('PARENT')) {
-      _showMessage(
-        'This login is for parent accounts only.',
-        isError: true,
-      );
-      return;
-    }
-
-    // Save the session using your existing LocalStorage methods.
-    // Do not navigate until the token and required user details
-    // have been saved as expected by your application.
-
-    _showMessage('Login successful');
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const ParentHomeScreen(),
-      ),
-    );
-  } catch (e) {
-    if (!mounted) return;
-
-    _showMessage(
-      'Unable to connect to the server. Please try again.',
-      isError: true,
-    );
-  } finally {
-    if (mounted) {
-      setState(() => _isLoading = false);
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
-}
+
+  // ============================================================
+  // INPUT DECORATION
+  // ============================================================
 
   InputDecoration _inputDecoration({
     required String hint,
@@ -158,18 +172,12 @@ Future<void> login() async {
   }) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: GoogleFonts.poppins(
-        color: secondaryTextColor,
-        fontSize: 13,
-      ),
+      hintStyle: GoogleFonts.poppins(color: secondaryTextColor, fontSize: 13),
       prefixIcon: Icon(icon, color: primaryColor, size: 21),
       suffixIcon: suffixIcon,
       filled: true,
       fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 17,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: Color(0xFFE3E8F2)),
@@ -180,10 +188,7 @@ Future<void> login() async {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(
-          color: primaryColor,
-          width: 1.5,
-        ),
+        borderSide: const BorderSide(color: primaryColor, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
@@ -209,6 +214,10 @@ Future<void> login() async {
       ),
     );
   }
+
+  // ============================================================
+  // LOGIN FORM
+  // ============================================================
 
   Widget _buildLoginForm() {
     return Form(
@@ -245,10 +254,7 @@ Future<void> login() async {
             controller: usernameController,
             textInputAction: TextInputAction.next,
             autocorrect: false,
-            style: GoogleFonts.poppins(
-              color: textColor,
-              fontSize: 14,
-            ),
+            style: GoogleFonts.poppins(color: textColor, fontSize: 14),
             decoration: _inputDecoration(
               hint: 'Enter your username',
               icon: Icons.person_outline_rounded,
@@ -268,16 +274,12 @@ Future<void> login() async {
             obscureText: _obscurePassword,
             textInputAction: TextInputAction.done,
             onFieldSubmitted: (_) => login(),
-            style: GoogleFonts.poppins(
-              color: textColor,
-              fontSize: 14,
-            ),
+            style: GoogleFonts.poppins(color: textColor, fontSize: 14),
             decoration: _inputDecoration(
               hint: 'Enter your password',
               icon: Icons.lock_outline_rounded,
               suffixIcon: IconButton(
-                tooltip:
-                    _obscurePassword ? 'Show password' : 'Hide password',
+                tooltip: _obscurePassword ? 'Show password' : 'Hide password',
                 onPressed: () {
                   setState(() {
                     _obscurePassword = !_obscurePassword;
@@ -299,25 +301,23 @@ Future<void> login() async {
             },
           ),
           const SizedBox(height: 28),
-          
-          // Forgot Password option
+
           Align(
             alignment: Alignment.centerRight,
             child: TextButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const ForgotPasswordScreen(),
-                  ),
-                );
-              },
+              onPressed: _isLoading
+                  ? null
+                  : () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ForgotPasswordScreen(),
+                        ),
+                      );
+                    },
               style: TextButton.styleFrom(
                 foregroundColor: primaryColor,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 4,
-                  vertical: 8,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: Text(
@@ -329,9 +329,7 @@ Future<void> login() async {
               ),
             ),
           ),
-
           const SizedBox(height: 20),
-
 
           SizedBox(
             width: double.infinity,
@@ -378,6 +376,10 @@ Future<void> login() async {
     super.dispose();
   }
 
+  // ============================================================
+  // SCREEN UI
+  // ============================================================
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -385,10 +387,7 @@ Future<void> login() async {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 24,
-              vertical: 28,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
               child: Column(
@@ -396,7 +395,6 @@ Future<void> login() async {
                 children: [
                   const SizedBox(height: 10),
 
-                  // Common branding for every school.
                   Center(
                     child: Container(
                       height: 76,
@@ -453,8 +451,9 @@ Future<void> login() async {
                       border: Border.all(color: const Color(0xFFE9EDF5)),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF172033)
-                              .withValues(alpha: 0.04),
+                          color: const Color(
+                            0xFF172033,
+                          ).withValues(alpha: 0.04),
                           blurRadius: 28,
                           offset: const Offset(0, 12),
                         ),
