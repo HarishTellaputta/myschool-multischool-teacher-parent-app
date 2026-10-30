@@ -70,17 +70,17 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   // BODY
   // ============================================================
 
- Widget _buildBody() {
-  if (_selectedIndex == 1) {
-    return const ExamsScreen();
-  }
+  Widget _buildBody() {
+    if (_selectedIndex == 1) {
+      return const ExamsScreen();
+    }
 
-  if (_selectedIndex == 2) {
-    return const CallParentScreen();
-  }
+    if (_selectedIndex == 2) {
+      return const CallParentScreen();
+    }
 
-  return _buildHome();
-}
+    return _buildHome();
+  }
 
   Widget _buildComingSoon() {
     return const Center(
@@ -195,8 +195,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
 
             const SizedBox(height: 24),
 
-            _buildBirthdayStatus(),
-
+            //_buildBirthdayStatus(),
             const SizedBox(height: 28),
 
             _buildSectionTitle(
@@ -656,10 +655,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       children: [
-        // ============================================================
         // TIMETABLE
-        // ============================================================
-
         _quickActionCard(
           icon: Icons.calendar_month_rounded,
           title: 'Timetable',
@@ -672,9 +668,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           },
         ),
 
-        // ============================================================
         // MY CLASSES
-        // ============================================================
         _quickActionCard(
           icon: Icons.class_rounded,
           title: 'My Classes',
@@ -691,9 +685,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           },
         ),
 
-        // ============================================================
         // NOTICES
-        // ============================================================
         _quickActionCard(
           icon: Icons.campaign_rounded,
           title: 'Notices',
@@ -706,9 +698,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
           },
         ),
 
-        // ============================================================
         // PERFORMANCE
-        // ============================================================
         _quickActionCard(
           icon: Icons.insights_rounded,
           title: 'Performance',
@@ -719,6 +709,19 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               MaterialPageRoute(
                 builder: (_) => const TeacherPerformanceScreen(),
               ),
+            );
+          },
+        ),
+
+        // LEAVE REQUEST
+        _quickActionCard(
+          icon: Icons.event_busy_rounded,
+          title: 'Leave Request',
+          subtitle: 'Apply & track leaves',
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const LeaveRequestScreen()),
             );
           },
         ),

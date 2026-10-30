@@ -24,6 +24,8 @@ class _FeeDetailsScreenState extends State<FeeDetailsScreen> {
 
   // Fee summary
   double totalFee = 0;
+  double totalDiscount = 0;
+  double totalPayable = 0;
   double totalPaid = 0;
   double totalPending = 0;
 
@@ -64,9 +66,56 @@ class _FeeDetailsScreenState extends State<FeeDetailsScreen> {
         throw Exception('Invalid assigned fees response.');
       }
 
-      final double assignedTotal = _calculateTotalFee(feeData);
+      // 2. Calculate fee summary from assigned fee records.
+      double assignedTotal = 0;
+      double discountAmount = 0;
+      double payableAmount = 0;
+      double paidAmount = 0;
+      double pendingAmount = 0;
 
-      // 2. Load actual payment transactions.
+      for (final item in feeData) {
+        if (item is! Map) continue;
+
+        final map = Map<String, dynamic>.from(item);
+
+        final double originalFee = _parseAmount(
+          map['totalAmount'] ??
+              map['amount'] ??
+              map['feeAmount'],
+        );
+
+        final double discount = _parseAmount(
+          map['discountAmount'],
+        );
+
+        // Prefer backend payableAmount.
+        // If unavailable, calculate Total Fee - Discount.
+        final double payable = map['payableAmount'] != null
+            ? _parseAmount(map['payableAmount'])
+            : (originalFee - discount)
+                .clamp(0.0, double.infinity)
+                .toDouble();
+
+        final double paid = _parseAmount(
+          map['paidAmount'],
+        );
+
+        // Prefer backend pendingAmount.
+        // Otherwise calculate Payable - Paid.
+        final double pending = map['pendingAmount'] != null
+            ? _parseAmount(map['pendingAmount'])
+            : (payable - paid)
+                .clamp(0.0, double.infinity)
+                .toDouble();
+
+        assignedTotal += originalFee;
+        discountAmount += discount;
+        payableAmount += payable;
+        paidAmount += paid;
+        pendingAmount += pending;
+      }
+
+      // 3. Load actual payment transactions for history.
       final paymentResponse = await FeeService.getStudentPayments(
         widget.student.id,
       );
@@ -84,18 +133,14 @@ class _FeeDetailsScreenState extends State<FeeDetailsScreen> {
         throw Exception('Invalid payment history response.');
       }
 
-      double paidAmount = 0;
       final List<Map<String, dynamic>> payments = [];
 
       for (final item in paymentData) {
         if (item is! Map) continue;
 
         final map = Map<String, dynamic>.from(item);
-        final double amount = _parseAmount(map['amount']);
 
-        // Assumes this endpoint returns valid payment transactions
-        // for the requested student.
-        paidAmount += amount;
+        final double amount = _parseAmount(map['amount']);
 
         payments.add({
           'id': map['id'],
@@ -118,17 +163,12 @@ class _FeeDetailsScreenState extends State<FeeDetailsScreen> {
         return dateB.compareTo(dateA);
       });
 
-      // Pending = Total Fee - Total Paid.
-      // Never display a negative pending amount.
-      final double pendingAmount =
-          (assignedTotal - paidAmount)
-              .clamp(0.0, double.infinity)
-              .toDouble();
-
       if (!mounted) return;
 
       setState(() {
         totalFee = assignedTotal;
+        totalDiscount = discountAmount;
+        totalPayable = payableAmount;
         totalPaid = paidAmount;
         totalPending = pendingAmount;
         paymentHistory = payments;
@@ -136,7 +176,9 @@ class _FeeDetailsScreenState extends State<FeeDetailsScreen> {
       });
 
       debugPrint('========== FEE SUMMARY ==========');
-      debugPrint('Total Fee: $totalFee');
+      debugPrint('Original Fee: $totalFee');
+      debugPrint('Discount: $totalDiscount');
+      debugPrint('Payable Fee: $totalPayable');
       debugPrint('Total Paid: $totalPaid');
       debugPrint('Total Pending: $totalPending');
       debugPrint('Payment Count: ${paymentHistory.length}');
@@ -152,31 +194,6 @@ class _FeeDetailsScreenState extends State<FeeDetailsScreen> {
         isLoading = false;
       });
     }
-  }
-
-  // ============================================================
-  // CALCULATE TOTAL ASSIGNED FEE
-  // ============================================================
-
-  double _calculateTotalFee(List<dynamic> data) {
-    double total = 0;
-
-    for (final item in data) {
-      if (item is! Map) continue;
-
-      final map = Map<String, dynamic>.from(item);
-
-      final amount = _parseAmount(
-        map['amount'] ??
-            map['feeAmount'] ??
-            map['totalAmount'] ??
-            map['payableAmount'],
-      );
-
-      total += amount;
-    }
-
-    return total;
   }
 
   // ============================================================
@@ -222,8 +239,18 @@ class _FeeDetailsScreenState extends State<FeeDetailsScreen> {
 
   String _monthName(int month) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
 
     return months[month - 1];
@@ -260,7 +287,7 @@ class _FeeDetailsScreenState extends State<FeeDetailsScreen> {
         foregroundColor: const Color(0xFF1F2937),
         actions: [
           IconButton(
-            onPressed: _loadFees,
+            onPressed: isLoading ? null : _loadFees,
             tooltip: 'Refresh',
             icon: const Icon(Icons.refresh_rounded),
           ),
@@ -290,12 +317,12 @@ class _FeeDetailsScreenState extends State<FeeDetailsScreen> {
 
         const SizedBox(height: 20),
 
-        // Total Fee and Paid.
+        // Original Fee and Discount.
         Row(
           children: [
             Expanded(
               child: _summaryCard(
-                'Total Fee',
+                'Original Fee',
                 _formatAmount(totalFee),
                 const Color(0xFF3949AB),
                 Icons.account_balance_wallet_rounded,
@@ -304,10 +331,10 @@ class _FeeDetailsScreenState extends State<FeeDetailsScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: _summaryCard(
-                'Paid',
-                _formatAmount(totalPaid),
-                Colors.green,
-                Icons.check_circle_rounded,
+                'Discount',
+                _formatAmount(totalDiscount),
+                Colors.purple,
+                Icons.discount_rounded,
               ),
             ),
           ],
@@ -315,17 +342,43 @@ class _FeeDetailsScreenState extends State<FeeDetailsScreen> {
 
         const SizedBox(height: 12),
 
-        // Only one remaining-balance card is needed.
+        // Payable Fee after discount.
         _summaryCard(
-          'Pending Fee',
-          _formatAmount(totalPending),
-          Colors.orange.shade800,
-          Icons.pending_actions_rounded,
+          'Payable Fee (After Discount)',
+          _formatAmount(totalPayable),
+          const Color(0xFF1565C0),
+          Icons.receipt_long_rounded,
           fullWidth: true,
+        ),
+
+        const SizedBox(height: 12),
+
+        // Paid and Pending.
+        Row(
+          children: [
+            Expanded(
+              child: _summaryCard(
+                'Paid',
+                _formatAmount(totalPaid),
+                Colors.green,
+                Icons.check_circle_rounded,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _summaryCard(
+                'Pending',
+                _formatAmount(totalPending),
+                Colors.orange.shade800,
+                Icons.pending_actions_rounded,
+              ),
+            ),
+          ],
         ),
 
         const SizedBox(height: 28),
 
+        // Payment History Heading.
         Row(
           children: [
             const Expanded(
